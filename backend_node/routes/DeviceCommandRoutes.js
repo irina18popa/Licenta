@@ -1,7 +1,7 @@
 import express from "express";
 import {
   getAllDeviceCommands,
-  getDeviceCommandByType,
+  getDeviceCommandByDeviceID,
   createDeviceCommand,
   updateDeviceCommand,
   deleteDeviceCommand,
@@ -11,7 +11,7 @@ const router = express.Router();
 
 // Use deviceType as the identifier for these operations
 router.get("/", getAllDeviceCommands);
-router.get("/:deviceType", getDeviceCommandByType);
+router.get("/:deviceType", getDeviceCommandByDeviceID);
 router.post("/", createDeviceCommand);
 router.put("/:deviceType", updateDeviceCommand);
 router.delete("/:deviceType", deleteDeviceCommand);
