@@ -1,4 +1,4 @@
-#!/home/user/Licenta/myenv/bin/python3
+#!/home/user/Licenta_git/backend_python/myenv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys
