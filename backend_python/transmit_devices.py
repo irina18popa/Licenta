@@ -7,12 +7,19 @@ from ble_scan import scan_ble
 # Configure your MQTT broker and topics
 MQTT_BROKER = "127.0.0.1"
 TOPIC_PUB = "app/devices/discovered"
+TOPIC_PUB2 = "app/devices/full_info/return"
 TOPIC_SUB = "app/devices/discover"
+TOPIC_SUB2 = "app/devices/full_info/send"
 
 # Define on_connect and on_message callback functions
 def on_connect(client, userdata, flags, rc):
     print(f"Connected with result code {rc}")
-    client.subscribe(TOPIC_SUB)  # Subscribe to the topic once connected
+    client.subscribe(TOPIC_SUB)  
+    client.subscribe(TOPIC_SUB2)
+
+    # Clear retained message (only needed once)
+    client.publish(TOPIC_PUB, payload=None, retain=True)
+
 
 def on_message(client, userdata, msg):
     print(f"Message received on topic {msg.topic}: {msg.payload.decode()}")
@@ -23,16 +30,29 @@ def on_message(client, userdata, msg):
         device_data = loop.run_until_complete(discover_devices())
 
         # Publish the combined device data
-        client.publish(TOPIC_PUB, json.dumps(device_data))
+        client.publish(TOPIC_PUB, json.dumps(device_data), retain=False)
         print(f"Published device data to {TOPIC_PUB}")
 
 async def discover_devices():
     """Run both SSDP and BLE scans and return combined results."""
-    ssdp_devices = await scan_ssdp()
+    upnp_devices = await scan_ssdp()
     ble_devices = await scan_ble()
 
     # Merge SSDP and BLE results
-    return ssdp_devices + ble_devices
+    return upnp_devices + ble_devices
+
+
+async def return_devices(protocol, deviceId):
+    if protocol == "upnp":
+
+
+async def return_upnp_devices():
+    ssdp_devices = await scan_ssdp()    
+
+
+async def return_tuya_devices():
+
+
 
 # Set up MQTT client and callbacks
 mqtt_client = mqtt.Client()
