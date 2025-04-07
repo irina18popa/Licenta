@@ -6,13 +6,13 @@ from async_upnp_client.client_factory import UpnpFactory
 
 DEVICE_DESC_URL = "http://192.168.1.131:2870/dmr.xml"
 
-async def get_upnp_actions_with_only_inputs():
+async def get_upnp_actions(device_url):
     async with aiohttp.ClientSession() as session:
         requester = AiohttpSessionRequester(session, with_sleep=True)
         factory = UpnpFactory(requester)
 
         try:
-            device = await factory.async_create_device(DEVICE_DESC_URL)
+            device = await factory.async_create_device(device_url)
         except Exception as e:
             return {"error": f"Failed to load UPnP device: {e}"}
 
@@ -33,15 +33,10 @@ async def get_upnp_actions_with_only_inputs():
                         "type": var.data_type,
                         # "description": var.name,
                         "enum": list(var.allowed_values) if var.allowed_values else [],
-                        "range": {
-                            "min":"",
-                            "max":"",
-                            "step":"",
-
-                            # "min": var.allowed_value_range.get("min", None) if var.allowed_value_range else None,
-                            # "max": var.allowed_value_range.get("max", None) if var.allowed_value_range else None,
-                            # "step": var.allowed_value_range.get("step", None) if var.allowed_value_range else None,
-                        },
+                        "range": var._state_variable_info.type_info.allowed_value_range,
+                            # "min": var.min_value if var.min_value is not None else None,
+                            # "max": var.max_value if var.max_value is not None else None,
+                            # "step": var._state_variable_info.type_info.allowed_value_range,
                         "properties": []
                     }
                     parameters.append(param_info)
@@ -61,9 +56,9 @@ async def get_upnp_actions_with_only_inputs():
 
        
 
-async def main():
-    device_commands = await get_upnp_actions_with_only_inputs()
-    print(json.dumps(device_commands, indent=4))  # Pretty print the JSON
+# async def main():
+#     device_commands = await get_upnp_actions(DEVICE_DESC_URL)
+#     print(json.dumps(device_commands, indent=4))  # Pretty print the JSON
 
 
-asyncio.run(main())
+# asyncio.run(main())

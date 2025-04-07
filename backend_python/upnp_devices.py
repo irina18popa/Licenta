@@ -1,7 +1,6 @@
 import asyncio
 import aiohttp
 import xml.etree.ElementTree as ET
-import datetime
 from getmac import get_mac_address
 from async_upnp_client.search import async_search
 from extract_hostIP import get_host_ip
@@ -38,7 +37,7 @@ def get_mac(ip_address: str) -> str:
     return mac
 
 
-async def scan_ssdp(include_ip=False, include_uuid=False, include_timestamp=False):
+async def scan_ssdp():
     """
     Perform SSDP Scan and return discovered device data as a list.
     Optional params to control data fields.
@@ -65,19 +64,11 @@ async def scan_ssdp(include_ip=False, include_uuid=False, include_timestamp=Fals
 
                 device_entry = {
                     "deviceName": friendly_name if friendly_name else "Unknown",
-                    "MAC": get_mac(ip_address),
+                    "MAC": get_mac(ip_address).upper(),
+                    "IP": ip_address,
+                    "uuid":device_uuid,
                     "protocol": "upnp",
-                    "status": "Online",
                 }
-
-                if include_ip:
-                    device_entry["IP_addr"] = ip_address
-
-                if include_uuid:
-                    device_entry["uuid"] = device_uuid
-
-                if include_timestamp:
-                    device_entry["timestamp"] = datetime.datetime.now().isoformat()
 
                 device_data.append(device_entry)
                 print(f"Discovered Device: {device_entry}")
@@ -94,3 +85,11 @@ async def scan_ssdp(include_ip=False, include_uuid=False, include_timestamp=Fals
         print("Error during SSDP scan:", e)
 
     return device_data
+
+# if __name__ == "__main__":
+#     discovered_devices = asyncio.run(scan_ssdp())
+
+#     # Print final list of devices
+#     print("\nFinal List of Discovered SSDP Devices:")
+#     for device in discovered_devices:
+#         print(device)

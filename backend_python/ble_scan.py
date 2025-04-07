@@ -24,11 +24,9 @@ async def scan_ble():
                 device_entry = {
                     "deviceName": name if name else "Unknown",
                     "MAC": device.address,
-                    #"IP_addr": 'Unknown',
-                    #"uuid": 'Uknown',
+                    "IP": 'Unknown',
+                    "uuid": 'Uknown',
                     "protocol": "ble",
-                    "status": "Online",
-                    #"timestamp": datetime.datetime.now().isoformat()
                 }
                 device_data.append(device_entry)
                 #print(f"BLE: Name: {name}, Address: {device.address}, RSSI: {device.rssi}")

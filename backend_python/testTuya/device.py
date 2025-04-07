@@ -99,7 +99,8 @@ for device_id in device_ids:
 
 
 
-# response = openapi.get("/v2.0/cloud/thing/device?page_size=20")
+response = openapi.get("/v2.0/cloud/thing/device?page_size=20")
+print(json.dumps(response, indent=4))
 
 # device_ids = [device["id"] for device in response.get("result", [])]
 
