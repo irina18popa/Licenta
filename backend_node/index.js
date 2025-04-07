@@ -17,15 +17,15 @@ const port = process.env.PORT || 3000;
 app.use(express.json());
 
 // MQTT Configuration
-const MQTT_BROKER = process.env.MQTT_BROKER || "mqtt://172.20.10.3";
+const MQTT_BROKER = process.env.MQTT_BROKER || "mqtt://192.168.1.136";
 const mqttClient = mqtt.connect(MQTT_BROKER);
 
 // MQTT Topics
 const TOPIC_PUB = "app/devices/discover";
 const TOPIC_SUB = "app/devices/discovered";
-//const TOPIC_PUB2 = "app/devices/full_info/send";
-//payload = protocol/Mac_addr
-const TOPIC_SUB2 = "app/devices/full_info/return";
+//const TOPIC_PUB2 = "app/devices/commands/send";
+//payload = protocol/ip_addr
+const TOPIC_SUB2 = "app/devices/commands/return";
 
 
 
@@ -52,22 +52,38 @@ mqttClient.on("connect", () => {
 });
 
 // Log incoming MQTT messages from "app/devices/discovered"
-mqttClient.on("message", (topic, message) => {
+mqttClient.on("message", async (topic, message) => {
   console.log(`Received message on ${topic}: ${message.toString()}`);
 
-  if (topic === 'app/devices/discovered') {
+  if (topic === TOPIC_SUB) {
     try {
       const devices = JSON.parse(message.toString());
 
       devices.forEach((device) => {
         console.log(`Device Name: ${device.deviceName}`);
         console.log(`MAC Address: ${device.MAC}`);
+        console.log(`IP Address: ${device.IP}`);
         console.log(`Protocol: ${device.protocol}`);
-        console.log(`Status: ${device.status}`);
+        console.log(`UUID:: ${device.uuid}`);
         console.log('------------------------');
       });
     } catch (error) {
       console.error('Failed to parse message:', error);
+    }
+  }
+
+  if(topic === TOPIC_SUB2)
+  {
+    try {
+      const payload = JSON.parse(message.toString());
+      console.log("Received payload:", payload);
+  
+      await axios.post("http://localhost:3000/api/devicecommands", payload);
+  
+      console.log("Sent payload to API for DB saving");
+  
+    } catch (error) {
+      console.error("Failed to send data to API:", error.response?.data || error.message);
     }
   }
 });
