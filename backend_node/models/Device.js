@@ -4,7 +4,6 @@ const DeviceSchema = new mongoose.Schema({
   name: { type: String, required: true },
   type: { type: String, enum: ["light", "sensor", "plug", "tv", "ir"], required: true },
   manufacturer: String,
-  model: String,
   macAddress: String,
   ipAddress: String,
   uuid: {type: String, required:true},
