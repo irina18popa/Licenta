@@ -38,7 +38,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV=/home/user/Licenta/myenv
+VIRTUAL_ENV=/home/user/Licenta_git/backend_python/myenv
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"

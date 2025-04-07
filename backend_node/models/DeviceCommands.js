@@ -14,7 +14,6 @@ const CommandParameterSchema = new mongoose.Schema({
 
 const CommandSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  description: { type: String },
   parameters: [CommandParameterSchema],
 });
 

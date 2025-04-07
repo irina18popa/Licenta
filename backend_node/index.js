@@ -17,12 +17,17 @@ const port = process.env.PORT || 3000;
 app.use(express.json());
 
 // MQTT Configuration
-const MQTT_BROKER = process.env.MQTT_BROKER || "mqtt://192.168.1.136";
+const MQTT_BROKER = process.env.MQTT_BROKER || "mqtt://172.20.10.3";
 const mqttClient = mqtt.connect(MQTT_BROKER);
 
 // MQTT Topics
 const TOPIC_PUB = "app/devices/discover";
 const TOPIC_SUB = "app/devices/discovered";
+//const TOPIC_PUB2 = "app/devices/full_info/send";
+//payload = protocol/Mac_addr
+const TOPIC_SUB2 = "app/devices/full_info/return";
+
+
 
 // Subscribe to "app/devices/discovered" and handle incoming messages
 mqttClient.on("connect", () => {
@@ -34,7 +39,12 @@ mqttClient.on("connect", () => {
     else console.log(`Subscribed to ${TOPIC_SUB}`);
   });
 
-  // Publish "search" message to the discovery topic when server starts
+  mqttClient.subscribe(TOPIC_SUB2, (err) => {
+    if (err) console.error("Subscription error:", err);
+    else console.log(`Subscribed to ${TOPIC_SUB2}`);
+  });
+
+  //Publish "search" message to the discovery topic when server starts
   // mqttClient.publish(TOPIC_PUB, "search", (err) => {
   //   if (err) console.error("Publish error:", err);
   //   else console.log(`Published "search" to ${TOPIC_PUB}`);
@@ -43,8 +53,25 @@ mqttClient.on("connect", () => {
 
 // Log incoming MQTT messages from "app/devices/discovered"
 mqttClient.on("message", (topic, message) => {
-  console.log(`Received message on ${topic}: ${message.toString()}`)
+  console.log(`Received message on ${topic}: ${message.toString()}`);
+
+  if (topic === 'app/devices/discovered') {
+    try {
+      const devices = JSON.parse(message.toString());
+
+      devices.forEach((device) => {
+        console.log(`Device Name: ${device.deviceName}`);
+        console.log(`MAC Address: ${device.MAC}`);
+        console.log(`Protocol: ${device.protocol}`);
+        console.log(`Status: ${device.status}`);
+        console.log('------------------------');
+      });
+    } catch (error) {
+      console.error('Failed to parse message:', error);
+    }
+  }
 });
+
 
 // Routes
 app.use("/api/users", userRoutes);
