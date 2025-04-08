@@ -23,13 +23,11 @@ def on_connect(client, userdata, flags, rc):
     client.publish(TOPIC_PUB, payload=None, retain=True)
 
 
-import asyncio
-import json
-
 TOPIC_PUB = "app/devices/discovered"
 TOPIC_PUB2 = "app/devices/commands/return"
 TOPIC_SUB = "app/devices/discover"
 TOPIC_SUB2 = "app/devices/commands/send"
+n   
 
 def on_message(client, userdata, msg):
     print(f"Message received on topic {msg.topic}: {msg.payload.decode()}")

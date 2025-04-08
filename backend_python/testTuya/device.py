@@ -21,10 +21,7 @@ openapi = TuyaOpenAPI(API_ENDPOINT, ACCESS_ID, ACCESS_KEY)
 openapi.connect()
 
 
-# API for list of devices
-# response = openapi.get("/v2.0/cloud/thing/device?page_size=10")
-# # Pretty-print the JSON response
-# print(json.dumps(response, indent=4))
+
 
 def parse_json_properties(values):
     properties = []
@@ -86,21 +83,23 @@ def get_tuya_device_commands(device_id):
     return device_commands
 
 
-
-response = openapi.get("/v2.0/cloud/thing/device?page_size=20")
-
-device_ids = [device["id"] for device in response.get("result", [])]
-
-# Iterate over device IDs and call the second API
-for device_id in device_ids:
-    device_commands = get_tuya_device_commands(device_id)
-    print(json.dumps(device_commands, indent=4))    
-
-
-
+# API for list of devices
 
 response = openapi.get("/v2.0/cloud/thing/device?page_size=20")
 print(json.dumps(response, indent=4))
+
+response = openapi.get("/v2.0/apps/Licenta/users?page_no=1&page_size=100")
+print(json.dumps(response, indent=4)) 
+
+
+# device_ids = [device["id"] for device in response.get("result", [])]
+
+# # Iterate over device IDs and call the second API
+# for device_id in device_ids:
+#     device_commands = get_tuya_device_commands(device_id)
+#     print(json.dumps(device_commands, indent=4))    
+
+
 
 # device_ids = [device["id"] for device in response.get("result", [])]
 
