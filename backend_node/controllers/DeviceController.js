@@ -23,8 +23,8 @@ export const getDeviceById = async (req, res) => {
 
 // Create a new device
 export const createDevice = async (req, res) => {
-  const { name, type, manufacturer, model, macAddress, ipAddress, protocol, status, metadata, icon } = req.body;
-  const device = new Device({ name, type, manufacturer, model, macAddress, ipAddress, protocol, status, metadata, icon });
+  const { name, type, manufacturer, macAddress, ipAddress, uuid, protocol, status, metadata, icon } = req.body;
+  const device = new Device({ name, type, manufacturer, macAddress, ipAddress, uuid, protocol, status, metadata, icon });
   try {
     const newDevice = await device.save();
     res.status(201).json(newDevice);
@@ -42,7 +42,6 @@ export const updateDevice = async (req, res) => {
     if (req.body.name) device.name = req.body.name;
     if (req.body.type) device.type = req.body.type;
     if (req.body.manufacturer) device.manufacturer = req.body.manufacturer;
-    if (req.body.model) device.model = req.body.model;
     if (req.body.macAddress) device.macAddress = req.body.macAddress;
     if (req.body.ipAddress) device.ipAddress = req.body.ipAddress;
     if (req.body.protocol) device.protocol = req.body.protocol;

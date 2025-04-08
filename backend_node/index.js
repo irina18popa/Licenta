@@ -28,6 +28,20 @@ const TOPIC_SUB = "app/devices/discovered";
 const TOPIC_SUB2 = "app/devices/commands/return";
 
 
+//trebuie sa fac un mqtt topic pt a trimite userID ul la care sa faca subscribe hub ul fiecarui utilizator
+
+const detectDeviceType = (deviceName) => {
+  const name = deviceName.toLowerCase();
+
+  if (name.includes("light")) return "light";
+  if (name.includes("sensor")) return "sensor";
+  if (name.includes("plug")) return "plug";
+  if (name.includes("tv")) return "tv";
+  if (name.includes("ir")) return "ir";
+
+  return "sensor"; // default fallback type
+};
+
 
 // Subscribe to "app/devices/discovered" and handle incoming messages
 mqttClient.on("connect", () => {
@@ -67,6 +81,32 @@ mqttClient.on("message", async (topic, message) => {
         console.log(`UUID:: ${device.uuid}`);
         console.log('------------------------');
       });
+
+      const clickedDevice = devices.find((d) => d.MAC === "30:A9:DE:43:2F:17");
+
+      if (clickedDevice) {
+        console.log("Clicked Device:", clickedDevice);
+
+        // Prepare payload for your API
+        const payload = {
+          name: clickedDevice.deviceName,
+          type: detectDeviceType(clickedDevice.deviceName) || "Unknown",
+          manufacturer: clickedDevice.manufacturer || "unknown",
+          macAddress: clickedDevice.MAC,
+          ipAddress: clickedDevice.IP,
+          uuid: clickedDevice.uuid,
+          protocol: clickedDevice.protocol,
+          status: "online",
+          metadata: {}, // optional additional data
+          icon: "Unknown", // or whatever you want
+        };
+
+        // Send POST request to save device
+        await axios.post("http://localhost:3000/api/devices", payload);
+        console.log("Device stored successfully!");
+
+        sendMQTTMessage("app/devices/commands/send", "upnp/192.168.1.131");
+      }
     } catch (error) {
       console.error('Failed to parse message:', error);
     }
@@ -76,7 +116,7 @@ mqttClient.on("message", async (topic, message) => {
   {
     try {
       const payload = JSON.parse(message.toString());
-      console.log("Received payload:", payload);
+      //console.log("Received payload:", payload);
   
       await axios.post("http://localhost:3000/api/devicecommands", payload);
   
