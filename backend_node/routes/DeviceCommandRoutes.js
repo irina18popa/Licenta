@@ -11,9 +11,9 @@ const router = express.Router();
 
 // Use deviceType as the identifier for these operations
 router.get("/", getAllDeviceCommands);
-router.get("/:deviceType", getDeviceCommandByDeviceID);
+router.get("/:deviceID", getDeviceCommandByDeviceID);
 router.post("/", createDeviceCommand);
-router.put("/:deviceType", updateDeviceCommand);
-router.delete("/:deviceType", deleteDeviceCommand);
+router.put("/:deviceID", updateDeviceCommand);
+router.delete("/:deviceID", deleteDeviceCommand);
 
 export default router;

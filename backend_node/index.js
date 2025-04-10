@@ -5,9 +5,11 @@ import { connectDB } from "./config/db.js";
 import userRoutes from "./routes/UserRoutes.js";
 import deviceRoutes from "./routes/DeviceRoutes.js";
 import deviceCommandRoutes from "./routes/DeviceCommandRoutes.js";
+import discoveredDevicesRoutes from "./routes/TemporarlyDevicesRoutes.js";
 import mqttTopicRoutes from "./routes/MQTTTopicRoutes.js";
 import { seedMqttTopics } from "./seed/MQTTSeed.js";
 import mqtt from "mqtt";  // Import MQTT package
+import { saveDiscoveredDevice } from "./discoveredDevices.js";
 
 dotenv.config();
 
@@ -70,53 +72,58 @@ mqttClient.on("message", async (topic, message) => {
   console.log(`Received message on ${topic}: ${message.toString()}`);
 
   if (topic === TOPIC_SUB) {
-    try {
-      const devices = JSON.parse(message.toString());
+    const devices = JSON.parse(message.toString());
+  
+    devices.forEach((device) => {
+      const tempDevice = {
+        name: device.deviceName,
+        type: detectDeviceType(device.deviceName) || "Unknown",
+        manufacturer: device.manufacturer || "unknown",
+        macAddress: device.MAC,
+        ipAddress: device.IP,
+        uuid: device.uuid,
+        protocol: device.protocol,
+        status: "online",
+        metadata: {},
+        icon: "Unknown",
+      };
+  
+      saveDiscoveredDevice(tempDevice);
+    });
+  }
 
-      devices.forEach((device) => {
-        console.log(`Device Name: ${device.deviceName}`);
-        console.log(`MAC Address: ${device.MAC}`);
-        console.log(`IP Address: ${device.IP}`);
-        console.log(`Protocol: ${device.protocol}`);
-        console.log(`UUID:: ${device.uuid}`);
-        console.log('------------------------');
-      });
+      // const clickedDevice = devices.find((d) => d.MAC === "30:A9:DE:43:2F:17");
 
-      const clickedDevice = devices.find((d) => d.MAC === "30:A9:DE:43:2F:17");
-
-      if (clickedDevice) {
-        console.log("Clicked Device:", clickedDevice);
+      // if (clickedDevice) {
+      //   console.log("Clicked Device:", clickedDevice);
 
         // Prepare payload for your API
-        const payload = {
-          name: clickedDevice.deviceName,
-          type: detectDeviceType(clickedDevice.deviceName) || "Unknown",
-          manufacturer: clickedDevice.manufacturer || "unknown",
-          macAddress: clickedDevice.MAC,
-          ipAddress: clickedDevice.IP,
-          uuid: clickedDevice.uuid,
-          protocol: clickedDevice.protocol,
-          status: "online",
-          metadata: {}, // optional additional data
-          icon: "Unknown", // or whatever you want
-        };
+      //   const payload = {
+      //     name: clickedDevice.deviceName,
+      //     type: detectDeviceType(clickedDevice.deviceName) || "Unknown",
+      //     manufacturer: clickedDevice.manufacturer || "unknown",
+      //     macAddress: clickedDevice.MAC,
+      //     ipAddress: clickedDevice.IP,
+      //     uuid: clickedDevice.uuid,
+      //     protocol: clickedDevice.protocol,
+      //     status: "online",
+      //     metadata: {}, // optional additional data
+      //     icon: "Unknown", // or whatever you want
+      //   };
 
-        // Send POST request to save device
-        await axios.post("http://localhost:3000/api/devices", payload);
-        console.log("Device stored successfully!");
+      //   // Send POST request to save device
+      //   await axios.post("http://localhost:3000/api/devices", payload);
+      //   console.log("Device stored successfully!");
 
-        sendMQTTMessage("app/devices/commands/send", "upnp/192.168.1.131");
-      }
-    } catch (error) {
-      console.error('Failed to parse message:', error);
-    }
-  }
+      //   sendMQTTMessage("app/devices/commands/send", "upnp/192.168.1.131");
+      // }
+  
 
   if(topic === TOPIC_SUB2)
   {
     try {
       const payload = JSON.parse(message.toString());
-      //console.log("Received payload:", payload);
+      // console.log("Received payload:", payload);
   
       await axios.post("http://localhost:3000/api/devicecommands", payload);
   
@@ -132,6 +139,7 @@ mqttClient.on("message", async (topic, message) => {
 // Routes
 app.use("/api/users", userRoutes);
 app.use("/api/devices", deviceRoutes);
+app.use("/api/discovered", discoveredDevicesRoutes);
 app.use("/api/devicecommands", deviceCommandRoutes);
 app.use("/api/mqtttopic", mqttTopicRoutes(mqttClient));
 
