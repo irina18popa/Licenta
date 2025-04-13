@@ -1,12 +1,12 @@
 import mongoose from "mongoose";
 
 const DeviceSchema = new mongoose.Schema({
-  name: { type: String, required: true },
+  name: { type: String, required: true},
   type: { type: String, enum: ["light", "sensor", "plug", "tv", "ir"], required: true },
   manufacturer: String,
-  macAddress: String,
+  macAddress: {type: String, unique: true},
   ipAddress: String,
-  uuid: {type: String, required:true},
+  uuid: {type: String, required:true, unique:true},
   protocol: { type: String, enum: ["ble", "upnp", "mdns"], required: true },
   status: { type: String, enum: ["online", "offline"], default: "online" },
   metadata: mongoose.Schema.Types.Mixed, // Flexible field for storing additional data

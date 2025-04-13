@@ -13,6 +13,11 @@ module.exports = {
         "rubik-semibold": ['Rubik-SemiBold', 'sans-serif'],
         "rubik-light": ['Rubik-Light', 'sans-serif'],
       },
+      
+      boxShadow: {
+        innerNeu: 'inset 5px 5px 10px #0b0b0b, inset -5px -5px 10px #202020',
+        outerNeu: '9px 9px 16px #0b0b0b, -9px -9px 16px #202020',
+      },
       // colors:{
       //   "primary":
       //   {

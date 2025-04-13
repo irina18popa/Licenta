@@ -59,17 +59,11 @@ mqttClient.on("connect", () => {
     if (err) console.error("Subscription error:", err);
     else console.log(`Subscribed to ${TOPIC_SUB2}`);
   });
-
-  //Publish "search" message to the discovery topic when server starts
-  // mqttClient.publish(TOPIC_PUB, "search", (err) => {
-  //   if (err) console.error("Publish error:", err);
-  //   else console.log(`Published "search" to ${TOPIC_PUB}`);
-  // });
 });
 
 // Log incoming MQTT messages from "app/devices/discovered"
 mqttClient.on("message", async (topic, message) => {
-  console.log(`Received message on ${topic}: ${message.toString()}`);
+  console.log(`Received message on ${topic}`);
 
   if (topic === TOPIC_SUB) {
     const devices = JSON.parse(message.toString());
@@ -92,33 +86,6 @@ mqttClient.on("message", async (topic, message) => {
     });
   }
 
-      // const clickedDevice = devices.find((d) => d.MAC === "30:A9:DE:43:2F:17");
-
-      // if (clickedDevice) {
-      //   console.log("Clicked Device:", clickedDevice);
-
-        // Prepare payload for your API
-      //   const payload = {
-      //     name: clickedDevice.deviceName,
-      //     type: detectDeviceType(clickedDevice.deviceName) || "Unknown",
-      //     manufacturer: clickedDevice.manufacturer || "unknown",
-      //     macAddress: clickedDevice.MAC,
-      //     ipAddress: clickedDevice.IP,
-      //     uuid: clickedDevice.uuid,
-      //     protocol: clickedDevice.protocol,
-      //     status: "online",
-      //     metadata: {}, // optional additional data
-      //     icon: "Unknown", // or whatever you want
-      //   };
-
-      //   // Send POST request to save device
-      //   await axios.post("http://localhost:3000/api/devices", payload);
-      //   console.log("Device stored successfully!");
-
-      //   sendMQTTMessage("app/devices/commands/send", "upnp/192.168.1.131");
-      // }
-  
-
   if(topic === TOPIC_SUB2)
   {
     try {
@@ -127,7 +94,7 @@ mqttClient.on("message", async (topic, message) => {
   
       await axios.post("http://localhost:3000/api/devicecommands", payload);
   
-      console.log("Sent payload to API for DB saving");
+      console.log("\nSent payload to API for DB saving\n");
   
     } catch (error) {
       console.error("Failed to send data to API:", error.response?.data || error.message);

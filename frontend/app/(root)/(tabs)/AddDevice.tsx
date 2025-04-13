@@ -5,6 +5,7 @@ import Images from '../../../constants/images';
 import { handleRequest, fetchDiscoveredDevices, saveDevice } from '../../apis.js';
 
 const AddDevice = () => {
+  
   type Device = {
     name: string;
     macAddress: string;
