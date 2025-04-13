@@ -20,7 +20,7 @@ async def scan_ble():
 
             #Filter devices with RSSI >= -50 and ensure the name is not a MAC address
             # if device.rssi >= -50 and not mac_pattern.match(name.upper()):
-            if device.rssi >= -60:
+            if device.rssi >= -80:
                 device_entry = {
                     "deviceName": name if name else "Unknown",
                     "MAC": device.address,

@@ -4,9 +4,7 @@ import asyncio
 from async_upnp_client.aiohttp import AiohttpSessionRequester
 from async_upnp_client.client_factory import UpnpFactory
 
-DEVICE_DESC_URL = "http://192.168.1.131:2870/dmr.xml"
-
-async def get_upnp_actions(device_url):
+async def get_upnp_actions(device_url, device_id):
     async with aiohttp.ClientSession() as session:
         requester = AiohttpSessionRequester(session, with_sleep=True)
         factory = UpnpFactory(requester)
@@ -48,7 +46,7 @@ async def get_upnp_actions(device_url):
                 commands.append(command_info)
 
         device_commands = {
-            "deviceID": device.udn if device else "",
+            "deviceID": device_id,
             "commands": commands
         }
 

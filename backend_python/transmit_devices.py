@@ -23,12 +23,6 @@ def on_connect(client, userdata, flags, rc):
     client.publish(TOPIC_PUB, payload=None, retain=True)
 
 
-TOPIC_PUB = "app/devices/discovered"
-TOPIC_PUB2 = "app/devices/commands/return"
-TOPIC_SUB = "app/devices/discover"
-TOPIC_SUB2 = "app/devices/commands/send"
-n   
-
 def on_message(client, userdata, msg):
     print(f"Message received on topic {msg.topic}: {msg.payload.decode()}")
 
@@ -49,21 +43,22 @@ def handle_discover(client, msg):
         client.publish(TOPIC_PUB, json.dumps(device_data), retain=False)
         print(f"Published device data to {TOPIC_PUB}")
 
-# Handle command logic (protocol/MAC)
+# Handle command logic (protocol/IP_addr)
 def handle_commands(client, msg):
     payload = msg.payload.decode().strip()
     try:
-        protocol, ip_addr = payload.split("/")
-        print(f"Protocol: {protocol.upper()}, IP_addr: {ip_addr}")
+        protocol, ip_addr, device_id = payload.split("/")
+        print(f"Protocol: {protocol.upper()}, IP_addr: {ip_addr}, deviceid: {device_id}")
 
-        # Assuming DEVICE_DESC_URL depends on protocol & mac
-        DEVICE_DESC_URL = f"http://{ip_addr}:2870/dmr.xml"  # Example URL, adjust as needed
+        if protocol == "upnp":
+        # Assuming DEVICE_DESC_URL depends on protocol & Ip_addr
+            DEVICE_DESC_URL = f"http://{ip_addr}:2870/dmr.xml"  # Example URL, adjust as needed
 
-        loop = asyncio.get_event_loop()
-        actions = loop.run_until_complete(get_upnp_actions(DEVICE_DESC_URL))
+            loop = asyncio.get_event_loop()
+            actions = loop.run_until_complete(get_upnp_actions(DEVICE_DESC_URL, device_id))
 
-        client.publish(TOPIC_PUB2, json.dumps(actions), retain=False)
-        print(f"Published actions to {TOPIC_PUB2}")
+            client.publish(TOPIC_PUB2, json.dumps(actions), retain=False)
+            print(f"Published actions to {TOPIC_PUB2}")
 
     except ValueError:
         print("Invalid payload format. Expected: protocol/MAC")
