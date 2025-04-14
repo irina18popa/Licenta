@@ -69,7 +69,6 @@ export const fetchTVDevices = async () => {
   }
 };
 
-//de revizuit
 export const fetchTVDeviceCommands = async (deviceId) => {
   try {
     const response = await axios.get(`${API_URL}/devicecommands?deviceId=${deviceId}`);

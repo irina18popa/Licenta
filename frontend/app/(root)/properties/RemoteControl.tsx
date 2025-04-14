@@ -16,14 +16,20 @@ const RemoteControl: React.FC = () => {
 
   useEffect(() => {
     const loadDevices = async () => {
-      const tvDevices = await fetchTVDevices();
+      const rawDevices = await fetchTVDevices();
+      const tvDevices = rawDevices.map((d) => ({
+        name: d.name,
+        uuid: d._id,
+      }));
+
       setDevices(tvDevices);
       if (tvDevices.length > 0) {
         const firstDevice = tvDevices[0];
         setSelectedDevice(firstDevice);
 
-        const deviceCommands = await fetchTVDeviceCommands(firstDevice.uuid);
-        setCommands(deviceCommands);
+        const commandObjects = await fetchTVDeviceCommands(firstDevice.uuid);
+        const commandNames = commandObjects[0]?.commands?.map((c) => c.name) || [];
+        setCommands(commandNames);
       }
     };
     loadDevices();

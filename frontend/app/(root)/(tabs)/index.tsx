@@ -14,6 +14,7 @@ export default function App() {
       <Link href="/SignIn">SignIn</Link>
       <Link href="/AddDevice">Add device</Link>
       <Link href="/Profile">Profile</Link>
+      <Link href="/properties/RemoteControl">Remote</Link>
     </View>
   );
 }
