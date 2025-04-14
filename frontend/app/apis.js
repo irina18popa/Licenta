@@ -72,7 +72,7 @@ export const fetchTVDevices = async () => {
 //de revizuit
 export const fetchTVDeviceCommands = async (deviceId) => {
   try {
-    const response = await axios.get(`http://localhost/api/devicecommands?deviceId=${deviceId}`);
+    const response = await axios.get(`${API_URL}/devicecommands?deviceId=${deviceId}`);
     return response.data;
   } catch (error) {
     console.error('Error fetching device commands:', error);
