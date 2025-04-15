@@ -11,10 +11,11 @@ export default function App() {
       }}
     >
       <Text className="font-rubik text-3xl text-lg my-10">Welcome</Text>
-      <Link href="/SignIn">SignIn</Link>
+      <Link href="/SignUp">SignIn</Link>
       <Link href="/AddDevice">Add device</Link>
       <Link href="/Profile">Profile</Link>
       <Link href="/properties/RemoteControl">Remote</Link>
+      <Link href="/LogIn">LogIn</Link>
     </View>
   );
 }

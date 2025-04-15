@@ -1,7 +1,7 @@
 import { View, Text, Image, TouchableOpacity, Modal } from 'react-native';
 import { useState, useRef } from 'react'; // useRef for persisting intervalRef
 import { useNavigation } from '@react-navigation/native';
-import Images from '../../../constants/images';
+import images from '../../../constants/images';
 import { handleRequest, fetchDiscoveredDevices, saveDevice } from '../../apis.js';
 
 const AddDevice = () => {
@@ -58,8 +58,7 @@ const AddDevice = () => {
 
   return (
     <View className="flex-1">
-      <Image source={Images.background} className="absolute w-full h-full" blurRadius={10} />
-
+      <Image source={images.background} className="absolute w-full h-full" blurRadius={10} />
       <TouchableOpacity onPress={() => navigation.goBack()} className="mt-12 ml-4">
         <Text className="text-white">← Back</Text>
       </TouchableOpacity>
