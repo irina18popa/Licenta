@@ -61,7 +61,7 @@ def handle_commands(client, msg):
             print(f"Published actions to {TOPIC_PUB2}")
 
     except ValueError:
-        print("Invalid payload format. Expected: protocol/MAC")
+        print("Invalid payload format. Expected: protocol/IP_addr")
 
 
 async def discover_devices():
