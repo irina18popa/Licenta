@@ -24,7 +24,7 @@ const RemoteControl: React.FC = () => {
 
       setDevices(tvDevices);
       if (tvDevices.length > 0) {
-        const firstDevice = tvDevices[0];
+        const firstDevice = tvDevices[1];
         setSelectedDevice(firstDevice);
 
         const commandObjects = await fetchTVDeviceCommands(firstDevice.uuid);

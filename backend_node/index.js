@@ -19,7 +19,7 @@ const port = process.env.PORT || 3000;
 app.use(express.json());
 
 // MQTT Configuration
-const MQTT_BROKER = process.env.MQTT_BROKER || "mqtt://192.168.1.136";
+const MQTT_BROKER = process.env.MQTT_BROKER || "mqtt://192.168.1.11";
 const mqttClient = mqtt.connect(MQTT_BROKER);
 
 // MQTT Topics
@@ -90,7 +90,7 @@ mqttClient.on("message", async (topic, message) => {
   {
     try {
       const payload = JSON.parse(message.toString());
-      // console.log("Received payload:", payload);
+      console.log("Received payload:", payload);
   
       await axios.post("http://localhost:3000/api/devicecommands", payload);
   
