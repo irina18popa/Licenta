@@ -9,6 +9,9 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app uses the camera to scan barcodes on event tickets."
+      },
       "supportsTablet": true
     },
     "android": {
@@ -33,19 +36,25 @@
           "enableFullScreenImage_legacy": true
         }
       ],
-    [
-      "expo-font",
-      {
-        "fonts":[
-          "./assets/fonts/Rubik-Bold.ttf",
-          "./assets/fonts/Rubik-ExtraBold.ttf",
-          "./assets/fonts/Rubik-Medium.ttf",
-          "./assets/fonts/Rubik-Light.ttf",
-          "./assets/fonts/Rubik-Regular.ttf",
-          "./assets/fonts/Rubik-SemiBold.ttf"
-        ]
-      }
-    ]
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow $(PRODUCT_NAME) to use Face ID."
+        }
+      ],
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./assets/fonts/Rubik-Bold.ttf",
+            "./assets/fonts/Rubik-ExtraBold.ttf",
+            "./assets/fonts/Rubik-Medium.ttf",
+            "./assets/fonts/Rubik-Light.ttf",
+            "./assets/fonts/Rubik-Regular.ttf",
+            "./assets/fonts/Rubik-SemiBold.ttf"
+          ]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

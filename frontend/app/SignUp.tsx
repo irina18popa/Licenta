@@ -1,9 +1,65 @@
-import React from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, Image, KeyboardTypeOptions } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import images from '@/constants/images';
+import { useRouter } from 'expo-router';
 
-const SignUpScreen = () => {
+type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+
+// 2) Define a field descriptor interface
+interface FieldDescriptor {
+  icon: IconName;
+  placeholder: string;
+  value: string;
+  setter: (text: string) => void;
+  secure: boolean;
+  keyboard?: KeyboardTypeOptions;
+}
+
+const  SignUpScreen = () => {
+  // 3) State declarations come first
+  const [name, setName]                   = useState('');
+  const [email, setEmail]                 = useState('');
+  const [password, setPassword]           = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading]             = useState(false);
+  const router = useRouter();
+
+  // 4) Then you can build your typed fields array
+  const fields: FieldDescriptor[] = [
+    {
+      icon: 'account-outline',
+      placeholder: 'Name',
+      value: name,
+      setter: setName,
+      secure: false,
+    },
+    {
+      icon: 'email-outline',
+      placeholder: 'Email',
+      value: email,
+      setter: setEmail,
+      secure: false,
+      keyboard: 'email-address',
+    },
+    {
+      icon: 'lock-outline',
+      placeholder: 'Password',
+      value: password,
+      setter: setPassword,
+      secure: true,
+    },
+    {
+      icon: 'lock-check-outline',
+      placeholder: 'Confirm password',
+      value: confirmPassword,
+      setter: setConfirmPassword,
+      secure: true,
+    },
+  ];
+
+
+
   return (
     <View className="flex-1">
       <Image source={images.background} className="absolute w-full h-full" blurRadius={10} />
@@ -16,25 +72,29 @@ const SignUpScreen = () => {
         More than a connection with your homeliving
       </Text>
 
-      <View className="flex-row items-center bg-gray-200 rounded-full px-4 py-3 mb-3">
-        <MaterialCommunityIcons name="account-outline" size={20} />
-        <TextInput placeholder="Name" className="ml-2 flex-1 text-black" />
-      </View>
-
-      <View className="flex-row items-center bg-gray-200 rounded-full px-4 py-3 mb-3">
-        <MaterialCommunityIcons name="email-outline" size={20} />
-        <TextInput placeholder="Email" className="ml-2 flex-1 text-black" />
-      </View>
-
-      <View className="flex-row items-center bg-gray-200 rounded-full px-4 py-3 mb-3">
-        <MaterialCommunityIcons name="lock-outline" size={20} />
-        <TextInput placeholder="Password" secureTextEntry className="ml-2 flex-1 text-black" />
-      </View>
-
-      <View className="flex-row items-center bg-gray-200 rounded-full px-4 py-3 mb-3">
-        <MaterialCommunityIcons name="lock-check-outline" size={20} />
-        <TextInput placeholder="Confirm password" secureTextEntry className="ml-2 flex-1 text-black" />
-      </View>
+      <View className="space-y-4">
+        {[
+          { icon: 'account-outline', placeholder: 'Name', value: name, setter: setName, secure: false },
+          { icon: 'email-outline',    placeholder: 'Email', value: email, setter: setEmail, secure: false, keyboard: 'email-address' },
+          { icon: 'lock-outline',      placeholder: 'Password', value: password, setter: setPassword, secure: true },
+          { icon: 'lock-check-outline',placeholder: 'Confirm password', value: confirmPassword, setter: setConfirmPassword, secure: true },
+        ].map(({ icon, placeholder, value, setter, secure, keyboard }, i) => (
+          <View
+            key={i}
+            className="flex-row items-center bg-gray-200 rounded-full px-4 py-3"
+          >
+            <MaterialCommunityIcons name={icon} size={20} />
+            <TextInput
+              placeholder={placeholder}
+              value={value}
+              onChangeText={setter}
+              secureTextEntry={secure}
+              keyboardType={keyboard as any}
+              className="ml-2 flex-1 text-black"
+            />
+          </View>
+        ))}
+        </View>
 
       <TouchableOpacity className="bg-white py-3 rounded-full mb-4">
         <Text className="text-center font-bold">Sign Up</Text>
