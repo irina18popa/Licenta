@@ -22,6 +22,7 @@ export default function App() {
         <Link href="/Profile">Profile</Link>
         <Link href="/properties/RemoteControl">Remote</Link>
         <Link href="/LogIn">LogIn</Link>
+        <Link href="/HomeScreen">Home Screen</Link>
       </View>
     </SafeAreaView>
   );

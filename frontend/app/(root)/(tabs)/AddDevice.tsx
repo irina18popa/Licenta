@@ -3,6 +3,7 @@ import { useState, useRef } from 'react'; // useRef for persisting intervalRef
 import { useNavigation } from '@react-navigation/native';
 import images from '../../../constants/images';
 import { handleRequest, fetchDiscoveredDevices, saveDevice } from '../../apis.js';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const AddDevice = () => {
   
@@ -57,7 +58,7 @@ const AddDevice = () => {
   };
 
   return (
-    <View className="flex-1">
+    <SafeAreaView className="flex-1">
       <Image source={images.background} className="absolute w-full h-full" blurRadius={10} />
       <TouchableOpacity onPress={() => navigation.goBack()} className="mt-12 ml-4">
         <Text className="text-white">← Back</Text>
@@ -129,7 +130,7 @@ const AddDevice = () => {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 };
 

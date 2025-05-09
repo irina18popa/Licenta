@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, Image, KeyboardTypeOptions } f
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import images from '@/constants/images';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -61,7 +62,7 @@ const  SignUpScreen = () => {
 
 
   return (
-    <View className="flex-1">
+    <SafeAreaView className="flex-1">
       <Image source={images.background} className="absolute w-full h-full" blurRadius={10} />
       <View className="flex-row justify-center items-center my-10">
           <Text className="text-white text-lg text-center">Welcome to  </Text>
@@ -105,7 +106,7 @@ const  SignUpScreen = () => {
       <TouchableOpacity className="bg-white py-3 rounded-full">
         <Text className="text-center font-bold">Google</Text>
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 };
 

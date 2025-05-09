@@ -9,6 +9,11 @@ import map from "@/assets/images/map.png";
 import noResult from "@/assets/images/no-result.png";
 import logo from "@/assets/images/homeiq-logo-transparent.png"
 import background from "@/assets/images/background.jpeg"
+import bedroom from "@/assets/images/bedroom.jpg"
+import livingroom from "@/assets/images/livingroom.png"
+import kitchen from "@/assets/images/kitchen.jpg"
+import bathroom from "@/assets/images/bathroom.jpg"
+
 
 export default {
   onboarding,
@@ -21,5 +26,9 @@ export default {
   map,
   noResult,
   logo,
-  background
+  background,
+  bedroom, 
+  livingroom,
+  kitchen, 
+  bathroom
 };

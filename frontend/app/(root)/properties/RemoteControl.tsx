@@ -3,6 +3,7 @@ import { View, Text, ScrollView } from 'react-native';
 import NeumorphicCommandButton from '../../../components/NeumorphicCommandButton';
 import { fetchTVDeviceCommands, fetchTVDevices } from '@/app/apis';
 import axios from 'axios';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface Device {
   name: string;
@@ -50,20 +51,22 @@ const RemoteControl: React.FC = () => {
   };
 
   return (
-    <ScrollView className="flex-1 bg-neutral-900 p-4">
-      <Text className="text-white text-xl mb-4">
-        Remote for {selectedDevice?.name}
-      </Text>
-      <View className="flex flex-wrap flex-row justify-center">
-        {commands.map((cmd) => (
-          <NeumorphicCommandButton
-            key={cmd}
-            title={cmd}
-            onPress={() => handleCommandPress(cmd)}
-          />
-        ))}
-      </View>
-    </ScrollView>
+    <SafeAreaView>
+      <ScrollView className="flex-1 bg-neutral-900 p-4">
+        <Text className="text-white text-xl mb-4">
+          Remote for {selectedDevice?.name}
+        </Text>
+        <View className="flex flex-wrap flex-row justify-center">
+          {commands.map((cmd) => (
+            <NeumorphicCommandButton
+              key={cmd}
+              title={cmd}
+              onPress={() => handleCommandPress(cmd)}
+            />
+          ))}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 

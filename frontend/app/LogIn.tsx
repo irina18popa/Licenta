@@ -5,6 +5,7 @@ import images from '@/constants/images';
 import { Link } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 
 
@@ -140,7 +141,7 @@ const LoginScreen = () => {
       }, []);  // important: invoke once on mount
 
   return (
-    <View className="flex-1">
+    <SafeAreaView className="flex-1">
         <Image source={images.background} className="absolute w-full h-full" blurRadius={10} />
         <View className="flex-row justify-center items-center my-10">
             <Text className="text-white text-lg text-center">Welcome to  </Text>
@@ -196,7 +197,7 @@ const LoginScreen = () => {
             <Text className="text-white">Don’t have an account? </Text>
             <Link className='text-blue-300' href="/SignUp">SignUp</Link>
         </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
