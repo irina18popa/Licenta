@@ -1,8 +1,8 @@
 import { View, Text, Image, TouchableOpacity, Modal } from 'react-native';
 import { useState, useRef } from 'react'; // useRef for persisting intervalRef
 import { useNavigation } from '@react-navigation/native';
-import images from '../../../constants/images';
-import { handleRequest, fetchDiscoveredDevices, saveDevice } from '../../apis.js';
+import images from '../constants/images';
+import { handleRequest, fetchDiscoveredDevices, saveDevice } from './apis.js';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const AddDevice = () => {
