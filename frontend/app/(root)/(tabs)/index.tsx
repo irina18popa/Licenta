@@ -1,9 +1,9 @@
-import { View, Text, TouchableOpacity, Image, StatusBar, TextInput, FlatList, ImageSourcePropType, ListRenderItem, Switch } from 'react-native'
+import { View, Text, TouchableOpacity, Image, StatusBar, TextInput, FlatList, ImageSourcePropType, ListRenderItem, Switch, Alert } from 'react-native'
 import React, { useState } from 'react'
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import images from '../../../constants/images'
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Link, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 const WEATHER_API_KEY = 'YOUR_OPENWEATHERMAP_API_KEY';
 const CITY_NAME = 'City Name'; // make dynamic if needed
@@ -50,6 +50,21 @@ const HomeScreen = () => {
 
   const router = useRouter()
 
+  const TwoButtonAlert = ()=>
+      {
+          Alert.alert("Add device", "Choose a device type:",[
+              {
+                  text:"Tuya",
+                  onPress:()=>console.log("Cancel Pressed"),
+                  style:"cancel"
+              },
+              {
+                  text:"UPNP",
+                  onPress:()=> router.navigate('/AddDevice'),
+              }
+          ])
+      }
+
   // useEffect(() => { fetchWeather(); }, []);
 
   // const fetchWeather = async () => {
@@ -76,7 +91,7 @@ const HomeScreen = () => {
   };
 
   const renderRoom: ListRenderItem<Room> = ({ item }) => (
-    <TouchableOpacity className="mr-4 w-60">
+    <TouchableOpacity className="mr-4 w-60" onPress={() => router.navigate('/properties/Remote2')}>
       <Image source={item.image} className="w-full h-72 rounded-xl mb-2" />
       <Text className="text-lg font-bold text-gray-800">{item.name}</Text>
     </TouchableOpacity>
@@ -110,13 +125,13 @@ const HomeScreen = () => {
 
       {/* Header */}
       <View className="flex-row justify-between items-center px-5 pt-3">
-        <Link href="/Profile" className="flex-row items-center">
+        <TouchableOpacity className="flex-row items-center" onPress={() => router.navigate('/Profile')}>
           <Image source={images.avatar} className="w-10 h-10 rounded-full mr-3" />
           <View>
             <Text className="text-sm text-white">Good Morning</Text>
             <Text className="text-xl font-bold text-white">Adrian Hajdin</Text>
           </View>
-        </Link>
+        </TouchableOpacity>
         <View className="flex-col items-center p-2 gap-y-5">
           <TouchableOpacity>
             <Ionicons name="notifications-outline" size={24} color="#4B5563" />
@@ -124,7 +139,7 @@ const HomeScreen = () => {
           <TouchableOpacity>
             <MaterialCommunityIcons name="qrcode-scan" size={24} color="#4B5563" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.navigate('/AddDevice')}>
+          <TouchableOpacity onPress={TwoButtonAlert}>
             <MaterialCommunityIcons name="plus" size={24} color="#4B5563" />
           </TouchableOpacity>
         </View>
@@ -174,15 +189,6 @@ const HomeScreen = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Rooms List */}
-      {/* <FlatList
-        data={rooms}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={item => item.id}
-        renderItem={renderRoom}
-        contentContainerStyle={{ paddingVertical: 30, paddingLeft: 30 }}
-      /> */}
       {/* Content */}
       {selectedTab === 'Rooms' ? (
         <FlatList

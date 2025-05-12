@@ -11,7 +11,7 @@ const NeumorphicCommandButton: React.FC<NeumorphicCommandButtonProps> = ({
   onPress,
 }) => (
   <Pressable
-    className="bg-neutral-800 rounded-xl p-4 shadow-innerNeu active:shadow-outerNeu m-2"
+    className="bg-white-800 rounded-xl p-4 shadow-innerNeu active:shadow-outerNeu m-2"
     onPress={onPress}
   >
     <Text className="text-white text-center">{title}</Text>

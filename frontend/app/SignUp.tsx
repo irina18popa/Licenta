@@ -97,7 +97,7 @@ const  SignUpScreen = () => {
         ))}
         </View>
 
-      <TouchableOpacity className="bg-white py-3 rounded-full mb-4">
+      <TouchableOpacity className="bg-white py-3 rounded-full mb-4" onPress={() => router.navigate('/LogIn')}>
         <Text className="text-center font-bold">Sign Up</Text>
       </TouchableOpacity>
 

@@ -13,6 +13,7 @@ import bedroom from "@/assets/images/bedroom.jpg"
 import livingroom from "@/assets/images/livingroom.png"
 import kitchen from "@/assets/images/kitchen.jpg"
 import bathroom from "@/assets/images/bathroom.jpg"
+import tv from "@/assets/images/tv.png"
 
 
 export default {
@@ -30,5 +31,6 @@ export default {
   bedroom, 
   livingroom,
   kitchen, 
-  bathroom
+  bathroom,
+  tv
 };

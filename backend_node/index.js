@@ -19,7 +19,7 @@ const port = process.env.PORT || 3000;
 app.use(express.json());
 
 // MQTT Configuration
-const MQTT_BROKER = process.env.MQTT_BROKER || "mqtt://192.168.1.11";
+const MQTT_BROKER = process.env.MQTT_BROKER || "mqtt://192.168.1.136";
 const mqttClient = mqtt.connect(MQTT_BROKER);
 
 // MQTT Topics

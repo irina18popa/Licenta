@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Image } from 'react-native';
 import images from '../../../constants/images';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 
 const scenarios = [
   'Movie Time',
@@ -36,7 +37,7 @@ export default function Scenarios() {
           ))}
           <TouchableOpacity
             className="bg-blue-500 p-4 mt-2 rounded-lg items-center"
-            onPress={() => console.log('Add new scenario')}
+            onPress={() => router.navigate('/CreateScenario')}
           >
             <Text className="text-lg text-white">+ Add Scenario</Text>
           </TouchableOpacity>

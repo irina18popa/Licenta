@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, Image } from 'react-native';
 import NeumorphicCommandButton from '../../../components/NeumorphicCommandButton';
 import { fetchTVDeviceCommands, fetchTVDevices } from '@/app/apis';
 import axios from 'axios';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import images from '@/constants/images';
 
 interface Device {
   name: string;
@@ -25,7 +26,7 @@ const RemoteControl: React.FC = () => {
 
       setDevices(tvDevices);
       if (tvDevices.length > 0) {
-        const firstDevice = tvDevices[1];
+        const firstDevice = tvDevices[0];
         setSelectedDevice(firstDevice);
 
         const commandObjects = await fetchTVDeviceCommands(firstDevice.uuid);
@@ -51,8 +52,9 @@ const RemoteControl: React.FC = () => {
   };
 
   return (
-    <SafeAreaView>
-      <ScrollView className="flex-1 bg-neutral-900 p-4">
+    <SafeAreaView className="flex-1">
+      <Image source={images.background} className="absolute w-full h-full" blurRadius={10} />
+      <ScrollView>
         <Text className="text-white text-xl mb-4">
           Remote for {selectedDevice?.name}
         </Text>
