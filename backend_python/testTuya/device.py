@@ -85,11 +85,24 @@ def get_tuya_device_commands(device_id):
 
 # API for list of devices
 
-response = openapi.get("/v2.0/cloud/thing/device?page_size=20")
+# response = openapi.get("/v2.0/cloud/thing/device?page_size=20")
+# print(json.dumps(response, indent=4))
+
+
+# api for getting the mac
+# response = openapi.get("/v1.0/devices/bfbdeb81177e0fca75y6ws/users")
+# print(json.dumps(response, indent=4))
+
+response = openapi.get(
+    "/v1.0/devices/factory-infos",
+    params={"device_ids": "bf43ae3d721a7520afrlbx"}
+)
 print(json.dumps(response, indent=4))
 
-response = openapi.get("/v2.0/apps/Licenta/users?page_no=1&page_size=100")
-print(json.dumps(response, indent=4)) 
+#/v1.0/devices/{device_id}/users
+
+# response = openapi.get("/v2.0/apps/Licenta/users?page_no=1&page_size=100")
+# print(json.dumps(response, indent=4)) 
 
 
 # device_ids = [device["id"] for device in response.get("result", [])]
