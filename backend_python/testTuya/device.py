@@ -84,20 +84,57 @@ def get_tuya_device_commands(device_id):
 
 
 # API for list of devices
+def get_tuya_device():
+    response = openapi.get("/v2.0/cloud/thing/device?page_size=20")
 
-# response = openapi.get("/v2.0/cloud/thing/device?page_size=20")
-# print(json.dumps(response, indent=4))
+    output = []
+
+    # 2️⃣ Iterate devices, fetch factory infos, process MAC and build output
+    for device in response["result"]:
+        device_id = device["id"]
+        
+        # Fetch factory infos
+        fi_response = openapi.get(
+            "/v1.0/devices/factory-infos",
+            params={"device_ids": device_id}
+        )
+        info = fi_response["result"][0]
+        
+        # Process MAC: strip colons, reverse, uppercase
+        mac_original = info.get("mac", "")
+        reversed_octets = mac_original.split(":")[::-1]
+        processed_mac = ":".join(octet.upper() for octet in reversed_octets)
+        
+        # Determine display name and status
+        device_name = device.get("customName") or device.get("name")
+        status = "online" if device.get("isOnline") else "offline"
+        
+        # Combine into final record
+        output.append({
+            "deviceName": device_name,
+            "manufacturer": "TUYA",
+            "MAC": processed_mac,
+            "uuid": device.get("uuid"),
+            "protocol": "ble",
+            "status": status,
+            "metadata": device_id
+        })
+    return output
+    # 3️⃣ Print final combined JSON
+    #print(json.dumps(output, indent=4))
 
 
-# api for getting the mac
 # response = openapi.get("/v1.0/devices/bfbdeb81177e0fca75y6ws/users")
 # print(json.dumps(response, indent=4))
 
-response = openapi.get(
-    "/v1.0/devices/factory-infos",
-    params={"device_ids": "bf43ae3d721a7520afrlbx"}
-)
-print(json.dumps(response, indent=4))
+#api for getting the mac
+
+# response = openapi.get(
+#     "/v1.0/devices/factory-infos",
+#     params={"device_ids": "bfbdeb81177e0fca75y6ws"}
+#     #BA:09:AC:61:D5:11
+# )
+# print(json.dumps(response, indent=4))
 
 #/v1.0/devices/{device_id}/users
 
@@ -166,15 +203,15 @@ print(json.dumps(response, indent=4))
 #     "commands": [
 #         {
 #             "code": "switch_led",
-#             "value": True
+#             "value": False
 #         }
 #     ]
 # }
 
-# Make a POST request to the API endpoint with the payload
+# # #Make a POST request to the API endpoint with the payload
 # response = openapi.post("/v1.0/iot-03/devices/bfbdeb81177e0fca75y6ws/commands", payload)
 
-# # Pretty-print the JSON response
+# # # Pretty-print the JSON respons
 # print(json.dumps(response, indent=4))
 
 
