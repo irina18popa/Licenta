@@ -4,6 +4,8 @@ import asyncio
 from upnp_devices import scan_ssdp
 from ble_scan import scan_ble
 from upnp_commands import get_upnp_actions
+from testTuya.device import get_tuya_device, get_tuya_device_commands
+
 
 # Configure your MQTT broker and topics
 MQTT_BROKER = "127.0.0.1"
@@ -47,18 +49,31 @@ def handle_discover(client, msg):
 def handle_commands(client, msg):
     payload = msg.payload.decode().strip()
     try:
-        protocol, ip_addr, device_id = payload.split("/")
-        print(f"Protocol: {protocol.upper()}, IP_addr: {ip_addr}, deviceid: {device_id}")
+        protocol, addr, device_id = payload.split("/")
+        print(f"Protocol: {protocol.upper()}, Addr: {addr}, deviceid: {device_id}")
+
+        loop = asyncio.get_event_loop()
 
         if protocol == "upnp":
         # Assuming DEVICE_DESC_URL depends on protocol & Ip_addr
-            DEVICE_DESC_URL = f"http://{ip_addr}:2870/dmr.xml"  # Example URL, adjust as needed
+            DEVICE_DESC_URL = f"http://{addr}:2870/dmr.xml"  # Example URL, adjust as needed
 
-            loop = asyncio.get_event_loop()
             actions = loop.run_until_complete(get_upnp_actions(DEVICE_DESC_URL, device_id))
 
-            client.publish(TOPIC_PUB2, json.dumps(actions), retain=False)
-            print(f"Published actions to {TOPIC_PUB2}")
+        elif protocol == "ble":
+            print("here tuya")
+            actions = loop.run_until_complete(
+                get_tuya_device_commands(addr, device_id)
+            )
+            # unwrap or transform as needed; here we assume 'commands' key carries what you want
+            #actions = actions_resp.get("commands", [])
+
+        else:
+            print(f"Unknown protocol '{protocol}'")
+            return
+    
+        client.publish(TOPIC_PUB2, json.dumps(actions), retain=False)
+        print(f"Published actions to {TOPIC_PUB2}")
 
     except ValueError:
         print("Invalid payload format. Expected: protocol/IP_addr")
@@ -69,8 +84,11 @@ async def discover_devices():
     upnp_devices = await scan_ssdp()
     ble_devices = await scan_ble()
 
+    #this will not be here soon
+    tuya_device = await get_tuya_device()
+
     # Merge SSDP and BLE results
-    return upnp_devices + ble_devices
+    return upnp_devices + ble_devices + tuya_device
 
 
 # Set up MQTT client and callbacks

@@ -87,10 +87,10 @@ async def scan_ssdp():
 
     return device_data
 
-if __name__ == "__main__":
-    discovered_devices = asyncio.run(scan_ssdp())
+# if __name__ == "__main__":
+#     discovered_devices = asyncio.run(scan_ssdp())
 
-    # Print final list of devices
-    print("\nFinal List of Discovered SSDP Devices:")
-    for device in discovered_devices:
-        print(device)
+#     # Print final list of devices
+#     print("\nFinal List of Discovered SSDP Devices:")
+#     for device in discovered_devices:
+#         print(device)

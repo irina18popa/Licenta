@@ -1,5 +1,6 @@
 """This module has components that are used for testing tuya's device control and Pulsar massage queue."""
 import logging
+import asyncio
 import json
 from tuya_connector import (
     TuyaOpenAPI,
@@ -43,85 +44,89 @@ def parse_json_properties(values):
     return properties
 
 
-def get_tuya_device_commands(device_id):
-    functions_response = openapi.get(f"/v1.0/iot-03/devices/{device_id}/functions")
-
+async def get_tuya_device_commands(device_tuya_id: str, device_id:str) -> dict:
+    # call the blocking openapi.get in a thread
+    functions_response = await asyncio.to_thread(
+        openapi.get, f"/v1.0/iot-03/devices/{device_tuya_id}/functions"
+    )
     if not functions_response.get("success"):
-        return {"error": f"Failed to retrieve functions for device {device_id}"}
+        return {"error": f"Failed to retrieve functions for device {device_tuya_id}"}
 
     commands = []
-
-    for func in functions_response.get("result", {}).get("functions", []):
+    for func in functions_response["result"].get("functions", []):
         values = json.loads(func.get("values", "{}"))
-
         param_info = {
-            "name": func.get("code"),
-            "type": func.get("type"),
-            # "description": func.get("desc"),
-            "enum": values.get("range", []) if func.get("type") == "Enum" else [],
+            "name": func["code"],
+            "type": func["type"],
+            "enum": values.get("range", []) if func["type"] == "Enum" else [],
             "range": {
-                "min": values.get("min") if func.get("type") in ["Integer", "Float"] else None,
-                "max": values.get("max") if func.get("type") in ["Integer", "Float"] else None,
-                "step": values.get("step") if func.get("type") in ["Integer", "Float"] else None,
+                "min": values.get("min") if func["type"] in ("Integer", "Float") else None,
+                "max": values.get("max") if func["type"] in ("Integer", "Float") else None,
+                "step": values.get("step") if func["type"] in ("Integer", "Float") else None,
             },
-            "properties": parse_json_properties(values) if func.get("type") == "Json" else []
+            "properties": (
+                parse_json_properties(values)
+                if func["type"] == "Json"
+                else []
+            )
         }
-
-        command_info = {
-            "name": func.get("name"),
-            # "description": func.get("desc"),
+        commands.append({
+            "name": func["name"],
             "parameters": [param_info]
-        }
+        })
 
-        commands.append(command_info)
-
-    device_commands = {
-        "deviceID": device_id,
-        "commands": commands
-    }
-
-    return device_commands
+    return {"deviceID": device_id, "commands": commands}
 
 
 # API for list of devices
-def get_tuya_device():
-    response = openapi.get("/v2.0/cloud/thing/device?page_size=20")
+async def get_tuya_device() -> list:
+    # fetch device list
+    response = await asyncio.to_thread(openapi.get, "/v2.0/cloud/thing/device", {"page_size": 20})
 
     output = []
-
-    # 2️⃣ Iterate devices, fetch factory infos, process MAC and build output
-    for device in response["result"]:
+    for device in response.get("result", []):
         device_id = device["id"]
-        
-        # Fetch factory infos
-        fi_response = openapi.get(
+        fi_response = await asyncio.to_thread(
+            openapi.get,
             "/v1.0/devices/factory-infos",
-            params={"device_ids": device_id}
+            {"device_ids": device_id}
         )
         info = fi_response["result"][0]
-        
-        # Process MAC: strip colons, reverse, uppercase
+
         mac_original = info.get("mac", "")
-        reversed_octets = mac_original.split(":")[::-1]
-        processed_mac = ":".join(octet.upper() for octet in reversed_octets)
-        
-        # Determine display name and status
-        device_name = device.get("customName") or device.get("name")
-        status = "online" if device.get("isOnline") else "offline"
-        
-        # Combine into final record
+        processed_mac = ":".join(octet.upper() for octet in mac_original.split(":")[::-1])
+
         output.append({
-            "deviceName": device_name,
+            "deviceName": device.get("customName") or device.get("name"),
             "manufacturer": "TUYA",
             "MAC": processed_mac,
             "uuid": device.get("uuid"),
             "protocol": "ble",
-            "status": status,
+            "status": "online" if device.get("isOnline") else "offline",
             "metadata": device_id
         })
+
     return output
-    # 3️⃣ Print final combined JSON
+    #3️⃣ Print final combined JSON
     #print(json.dumps(output, indent=4))
+
+# async def main():
+#     # 1️⃣ Fetch all devices
+#     devices = await get_tuya_device()
+#     print("Devices:")
+#     print(json.dumps(devices, indent=2))
+    
+#     # 2️⃣ For each device, fetch its command list
+#     for dev in devices:
+#         device_id = dev["metadata"]
+#         cmds = await get_tuya_device_commands(device_id)
+#         print(f"\nCommands for device {device_id}:")
+#         print(json.dumps(cmds, indent=2))
+
+# if __name__ == "__main__":
+#     asyncio.run(main())
+
+#print(json.dumps(get_tuya_device_commands('bfbdeb81177e0fca75y6ws'), indent=4))
 
 
 # response = openapi.get("/v1.0/devices/bfbdeb81177e0fca75y6ws/users")
