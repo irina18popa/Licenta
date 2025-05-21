@@ -78,13 +78,17 @@ mqttClient.on("message", async (topic, message) => {
         uuid: device.uuid || "unknown",
         protocol: device.protocol || "unknown",
         status: device.status || "online",
-        metadata: {},
+        metadata: device.metadata,
         icon: "Unknown",
       };
   
       saveDiscoveredDevice(tempDevice);
     });
   }
+
+
+
+  // aici trebuie sa fac functie ca sa
 
   if(topic === TOPIC_SUB2)
   {

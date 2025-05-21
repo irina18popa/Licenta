@@ -97,12 +97,24 @@ const HomeScreen = () => {
     </TouchableOpacity>
   );
 
-  const renderDevice = ({ item }) => (
-    <TouchableOpacity className="flex-row justify-between items-center bg-black bg-opacity-50 mx-5 my-2 rounded-xl p-4" onPress={() => router.navigate('/properties/RemoteControl')}>
+  const renderDevice: ListRenderItem<typeof devices[0]> = ({ item }) => {
+  // item.id is a string, so compare to '2'
+  const screen =
+    item.id === '2'
+      ? '/properties/LampControl'
+      : '/properties/RemoteControl';
+
+  return (
+    <TouchableOpacity
+      className="flex-row justify-between items-center bg-black bg-opacity-50 mx-5 my-2 rounded-xl p-4"
+      onPress={() => router.navigate(screen)}
+    >
       <View className="flex-row items-center">
         {item.icon}
         <View className="ml-3">
-          <Text className="text-white text-lg font-bold">{item.name}</Text>
+          <Text className="text-white text-lg font-bold">
+            {item.name}
+          </Text>
           <View className="flex-row items-center">
             <View className="w-2 h-2 bg-green-400 rounded-full mr-1" />
             <Text className="text-white">Online</Text>
@@ -117,6 +129,7 @@ const HomeScreen = () => {
       />
     </TouchableOpacity>
   );
+};
 
   return (
     <SafeAreaView className="flex-1 bg-white-100">

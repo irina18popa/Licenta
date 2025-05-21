@@ -13,6 +13,7 @@ const AddDevice = () => {
     ipAddress: string;
     uuid: string;
     protocol: string;
+    metadata: Record<string, unknown>;
   };
 
   const navigation = useNavigation();
@@ -49,7 +50,7 @@ const AddDevice = () => {
   const handleSaveDevice = async (device: Device) => {
     try {
       const savedDevice = await saveDevice(device); // Save device through the API
-      console.log('Device saved:', savedDevice);
+      //console.log('Device saved:', device);
       setSavedDeviceName(device.name); // Set the name of the saved device
       setShowModal(true); // Show the modal with the success message
     } catch (error) {
@@ -91,7 +92,6 @@ const AddDevice = () => {
             >
               <View className="flex-row justify-between py-2 border-b border-gray-300">
                 <Text className="text-white">{device.name}</Text>
-                <Text className="text-white">MAC: {device.macAddress}</Text>
               </View>
             </TouchableOpacity>
           ))

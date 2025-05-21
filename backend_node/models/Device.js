@@ -9,7 +9,7 @@ const DeviceSchema = new mongoose.Schema({
   uuid: {type: String, required:true, unique:true},
   protocol: { type: String, enum: ["ble", "upnp", "mdns"], required: true },
   status: { type: String, enum: ["online", "offline"], default: "online" },
-  metadata: mongoose.Schema.Types.Mixed, // Flexible field for storing additional data
+  metadata: { type: mongoose.Schema.Types.Mixed, default: {} }, // Flexible field for storing additional data
   icon: {type:String, required:true},
   createdAt: { type: Date, default: Date.now }
 });
