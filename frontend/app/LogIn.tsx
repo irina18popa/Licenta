@@ -6,6 +6,7 @@ import { Link } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { red } from 'react-native-reanimated/lib/typescript/Colors';
 
 
 
@@ -141,14 +142,14 @@ const LoginScreen = () => {
       }, []);  // important: invoke once on mount
 
   return (
-    <SafeAreaView className="flex-1">
+    <SafeAreaView className="flex-1 bg-black" edges={['top']}>
         <Image source={images.background} className="absolute w-full h-full" blurRadius={10} />
-        <View className="flex-row justify-center items-center my-10">
+        <View className="flex-row justify-center items-center my-8">
             <Text className="text-white text-lg text-center">Welcome to  </Text>
             <Image source={images.logo} className="mr-2 h-14 w-36"/>
         </View>
 
-        <Text className="text-center text-black-300 mb-6">
+        <Text className="text-center text-black-300 mb-16 font-bold">
             More than a connection with your homeliving
         </Text>
 
@@ -168,6 +169,7 @@ const LoginScreen = () => {
             <MaterialCommunityIcons name="email-outline" size={20} />
             <TextInput
             placeholder="Email"
+            placeholderTextColor="#4B5563"
             className="ml-2 flex-1 text-black"
             />
         </View>
@@ -176,6 +178,7 @@ const LoginScreen = () => {
             <MaterialCommunityIcons name="lock-outline" size={20} />
             <TextInput
             placeholder="Password"
+            placeholderTextColor="#4B5563"
             secureTextEntry
             className="ml-2 flex-1 text-black"
             />
@@ -189,8 +192,9 @@ const LoginScreen = () => {
 
         <Text className="text-center text-white mb-2">Or login with</Text>
 
-        <TouchableOpacity className="bg-white py-3 rounded-full mx-8">
-            <Text className="text-center font-bold">Google</Text>
+        <TouchableOpacity className="bg-white py-3 rounded-full mx-8 flex-row items-center justify-center">
+            <MaterialCommunityIcons name='google' size={20}></MaterialCommunityIcons>
+            <Text className="text-center font-bold ml-1">Google</Text>
         </TouchableOpacity>
 
         <View className='flex-row items-center justify-center mt-6'>

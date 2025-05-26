@@ -21,6 +21,7 @@
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.0.14",
     "@react-navigation/native-stack": "^7.3.10",
+    "@react-navigation/stack": "^7.3.2",
     "axios": "^1.8.4",
     "expo": "53.0.9",
     "expo-blur": "~14.1.4",
@@ -46,7 +47,8 @@
     "react-native-web": "^0.20.0",
     "react-native-webview": "13.13.5",
     "reanimated-color-picker": "^4.0.1",
-    "tailwindcss": "3.4.17"
+    "tailwindcss": "3.4.17",
+    "expo-image-picker": "~16.1.4"
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",

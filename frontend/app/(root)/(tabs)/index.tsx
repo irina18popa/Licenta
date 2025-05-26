@@ -16,7 +16,7 @@ const rooms = [
 
 // Device data
 const initialDevices = [
-  { id: '1', name: 'JVC Tv', icon: <Ionicons name="tv-outline" size={24} color="white" />, status: true },
+  { id: '1', name: 'JVC TV', icon: <Ionicons name="tv-outline" size={24} color="white" />, status: true },
   { id: '2', name: 'Smart lamp', icon: <Ionicons name="bulb-outline" size={24} color="white" />, status: true },
 ];
 
@@ -93,7 +93,7 @@ const HomeScreen = () => {
   const renderRoom: ListRenderItem<Room> = ({ item }) => (
     <TouchableOpacity className="mr-4 w-60" onPress={() => router.navigate('/properties/Remote2')}>
       <Image source={item.image} className="w-full h-72 rounded-xl mb-2" />
-      <Text className="text-lg font-bold text-gray-800">{item.name}</Text>
+      <Text className="text-lg font-bold text-gray">{item.name}</Text>
     </TouchableOpacity>
   );
 
@@ -102,7 +102,7 @@ const HomeScreen = () => {
   const screen =
     item.id === '2'
       ? '/properties/LampControl'
-      : '/properties/RemoteControl';
+      : '/properties/Remote3';  ///properties/RemoteControl
 
   return (
     <TouchableOpacity
@@ -116,8 +116,10 @@ const HomeScreen = () => {
             {item.name}
           </Text>
           <View className="flex-row items-center">
-            <View className="w-2 h-2 bg-green-400 rounded-full mr-1" />
-            <Text className="text-white">Online</Text>
+            <View className={`w-2 h-2 rounded-full mr-1 ${
+                  item.status ? 'bg-green-400' : 'bg-red-600'
+                }`}/>
+            <Text className="text-white">{item.status ? 'Online' : 'Offline'}</Text>
           </View>
         </View>
       </View>

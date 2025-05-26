@@ -50,7 +50,7 @@ const TabsLayout = () => {
                 title:'Scenarios',
                 headerShown:false,
                 tabBarIcon: ({focused}) => (
-                    <TabIcon icon={icons.run} focused={focused} title='Scenarios'></TabIcon>
+                    <TabIcon icon={icons.clock} focused={focused} title='Scenarios'></TabIcon>
                 )
             }}>
         </Tabs.Screen>

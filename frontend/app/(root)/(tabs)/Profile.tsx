@@ -3,6 +3,7 @@ import { View, Text, Image, TouchableOpacity, FlatList } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import images from '../../../constants/images'
+import { router } from 'expo-router';
 
 
 const menuItems = [
@@ -32,7 +33,7 @@ const Profile = () => {
             source={images.avatar}
             className="w-28 h-28 rounded-full"
           />
-          <TouchableOpacity className="absolute bottom-0 right-0 bg-blue-500 p-2 rounded-full">
+          <TouchableOpacity className="absolute bottom-0 right-0 bg-blue-500 p-2 rounded-full" onPress={() => router.navigate('/LogIn')}>
             <Feather name="edit-2" size={16} color="white" />
           </TouchableOpacity>
         </View>

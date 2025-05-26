@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import Animated, { useAnimatedStyle, SharedValue, runOnJS } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, SharedValue } from 'react-native-reanimated';
 import ColorPicker, { Panel2, OpacitySlider, BrightnessSlider, InputWidget, ColorFormatsObject } from 'reanimated-color-picker';
 
 interface MyColorPickerInlineProps {

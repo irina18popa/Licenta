@@ -1,13 +1,22 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Image } from 'react-native';
 import MyColorPicker from '@/components/MyColorPicker';
+import MyWarmColorPicker from '@/components/MyWarmColorPicker'
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSharedValue } from 'react-native-reanimated';
 import { colorKit } from 'reanimated-color-picker';
 import images from '@/constants/images';
+import { RouteProp } from '@react-navigation/native';
 
 type Tab = 'Warm' | 'Color' | 'Scene' | 'Music';
 const TAB_TITLES: Tab[] = ['Warm', 'Color', 'Scene', 'Music'];
+
+type RootStackParamList = {
+  LampControl: { deviceName: string; deviceId: string };
+  // …other routes
+};
+
+type LampControlRouteProp = RouteProp<RootStackParamList, 'LampControl'>;
 
 const LampControl = () => {
   const [activeTab, setActiveTab] = useState<Tab>('Warm');
@@ -15,10 +24,12 @@ const LampControl = () => {
   const initialColor = colorKit.randomRgbColor().hex();
   const sharedColor = useSharedValue(initialColor);
 
+  
+
   const renderContent = () => {
     switch (activeTab) {
       case 'Warm':
-        return <Text className="text-center text-lg text-white">Warm Light Controls</Text>;
+        return <MyWarmColorPicker sharedColor={sharedColor}></MyWarmColorPicker>
       case 'Color':
         // Pass the SharedValue to the inline picker
         return <MyColorPicker sharedColor={sharedColor} />;

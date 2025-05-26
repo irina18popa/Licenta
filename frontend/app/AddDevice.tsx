@@ -59,7 +59,7 @@ const AddDevice = () => {
   };
 
   return (
-    <SafeAreaView className="flex-1">
+    <SafeAreaView className="flex-1 bg-black">
       <Image source={images.background} className="absolute w-full h-full" blurRadius={10} />
       <TouchableOpacity onPress={() => navigation.goBack()} className="mt-12 ml-4">
         <Text className="text-white">← Back</Text>
@@ -73,10 +73,10 @@ const AddDevice = () => {
             }
           }}
         >
-          <View className="w-20 h-20 rounded-full border-2 border-blue-600 items-center justify-center">
-            <View className="w-40 h-40 rounded-full border-2 border-blue-600 items-center justify-center">
-              <View className="w-60 h-60 rounded-full border-2 border-blue-600 items-center justify-center">
-                <Text className="text-blue-600 text-lg">{scanning ? 'Scanning...' : 'Scan'}</Text>
+          <View className="w-24 h-24 rounded-full border-4 border-blue-700 bg-blue-700 items-center justify-center">
+            <View className="w-40 h-40 rounded-full border-4 border-blue-700 items-center justify-center">
+              <View className="w-60 h-60 rounded-full border-4 border-blue-700 items-center justify-center">
+                <Text className="text-white text-lg">{scanning ? 'Scanning...' : 'Scan'}</Text>
               </View>
             </View>
           </View>

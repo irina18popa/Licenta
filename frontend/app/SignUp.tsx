@@ -1,110 +1,126 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, KeyboardTypeOptions } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Image,
+  KeyboardTypeOptions,
+  Alert,
+  Platform,
+  ToastAndroid
+} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import images from '@/constants/images';
-import { useRouter } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-
-// 2) Define a field descriptor interface
-interface FieldDescriptor {
-  icon: IconName;
-  placeholder: string;
-  value: string;
-  setter: (text: string) => void;
-  secure: boolean;
-  keyboard?: KeyboardTypeOptions;
-}
-
-const  SignUpScreen = () => {
-  // 3) State declarations come first
+const SignUpScreen: React.FC = () => {
   const [name, setName]                   = useState('');
   const [email, setEmail]                 = useState('');
   const [password, setPassword]           = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading]             = useState(false);
   const router = useRouter();
 
-  // 4) Then you can build your typed fields array
-  const fields: FieldDescriptor[] = [
-    {
-      icon: 'account-outline',
-      placeholder: 'Name',
-      value: name,
-      setter: setName,
-      secure: false,
-    },
-    {
-      icon: 'email-outline',
-      placeholder: 'Email',
-      value: email,
-      setter: setEmail,
-      secure: false,
-      keyboard: 'email-address',
-    },
-    {
-      icon: 'lock-outline',
-      placeholder: 'Password',
-      value: password,
-      setter: setPassword,
-      secure: true,
-    },
-    {
-      icon: 'lock-check-outline',
-      placeholder: 'Confirm password',
-      value: confirmPassword,
-      setter: setConfirmPassword,
-      secure: true,
-    },
-  ];
-
-
+  const handleSignUp = () => {
+    // your signup logic...
+    const msg = 'Signed up successfully!';
+    Platform.OS === 'android'
+      ? ToastAndroid.show(msg, ToastAndroid.SHORT)
+      : Alert.alert('Success', msg);
+    router.push('/LogIn');
+  };
 
   return (
-    <SafeAreaView className="flex-1">
-      <Image source={images.background} className="absolute w-full h-full" blurRadius={10} />
+    <SafeAreaView className="flex-1 bg-black" edges={['top']}>
+      <Image
+        source={images.background}
+        className="absolute w-full h-full"
+        blurRadius={10}
+      />
+
+      {/* Header / Logo */}
       <View className="flex-row justify-center items-center my-10">
-          <Text className="text-white text-lg text-center">Welcome to  </Text>
-          <Image source={images.logo} className="mr-2 h-14 w-36"/>
+        <Text className="text-white text-lg text-center">Welcome to </Text>
+        <Image source={images.logo} className="h-14 w-36 ml-2" />
       </View>
 
-      <Text className="text-center text-blue-500 mb-6">
+      <Text className="text-center text-black-300 mb-16 mx-8 font-bold">
         More than a connection with your homeliving
       </Text>
 
-      <View className="space-y-4">
-        {[
-          { icon: 'account-outline', placeholder: 'Name', value: name, setter: setName, secure: false },
-          { icon: 'email-outline',    placeholder: 'Email', value: email, setter: setEmail, secure: false, keyboard: 'email-address' },
-          { icon: 'lock-outline',      placeholder: 'Password', value: password, setter: setPassword, secure: true },
-          { icon: 'lock-check-outline',placeholder: 'Confirm password', value: confirmPassword, setter: setConfirmPassword, secure: true },
-        ].map(({ icon, placeholder, value, setter, secure, keyboard }, i) => (
-          <View
-            key={i}
-            className="flex-row items-center bg-gray-200 rounded-full px-4 py-3"
-          >
-            <MaterialCommunityIcons name={icon} size={20} />
-            <TextInput
-              placeholder={placeholder}
-              value={value}
-              onChangeText={setter}
-              secureTextEntry={secure}
-              keyboardType={keyboard as any}
-              className="ml-2 flex-1 text-black"
-            />
-          </View>
-        ))}
+      {/* Form Fields */}
+      <View className="flex flex-col space-y-4 mx-8 mb-8">
+        <View className="flex-row items-center bg-gray-200 rounded-full px-4 py-3 mb-4">
+          <MaterialCommunityIcons name="account-outline" size={20} />
+          <TextInput
+            placeholder="Name"
+            placeholderTextColor="#4B5563"
+            value={name}
+            onChangeText={setName}
+            className="ml-2 flex-1 text-black"
+          />
         </View>
 
-      <TouchableOpacity className="bg-white py-3 rounded-full mb-4" onPress={() => router.navigate('/LogIn')}>
-        <Text className="text-center font-bold">Sign Up</Text>
+        <View className="flex-row items-center bg-gray-200 rounded-full px-4 py-3 mb-4">
+          <MaterialCommunityIcons name="email-outline" size={20} />
+          <TextInput
+            placeholder="Email"
+            placeholderTextColor="#4B5563"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            className="ml-2 flex-1 text-black"
+          />
+        </View>
+
+        <View className="flex-row items-center bg-gray-200 rounded-full px-4 py-3 mb-4">
+          <MaterialCommunityIcons name="lock-outline" size={20} />
+          <TextInput
+            placeholder="Password"
+            placeholderTextColor="#4B5563"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            className="ml-2 flex-1 text-black"
+          />
+        </View>
+
+        <View className="flex-row items-center bg-gray-200 rounded-full px-4 py-3">
+          <MaterialCommunityIcons name="lock-check-outline" size={20} />
+          <TextInput
+            placeholder="Confirm password"
+            placeholderTextColor="#4B5563"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+            className="ml-2 flex-1 text-black"
+          />
+        </View>
+      </View>
+
+      {/* Sign Up Button */}
+      <TouchableOpacity
+        onPress={handleSignUp}
+        className="bg-blue-700 py-3 rounded-full mb-4 mx-8 mt-6"
+      >
+        <Text className="text-center text-white font-bold">Sign Up</Text>
       </TouchableOpacity>
 
-      <Text className="text-center text-white mb-2">Or login with</Text>
+      {/* Or login link */}
+      <View className="flex-row justify-center items-center mb-4">
+        <Text className="text-white">Already have an account? </Text>
+        <Link href="/LogIn" className="text-blue-300 font-bold">
+          Log In
+        </Link>
+      </View>
 
-      <TouchableOpacity className="bg-white py-3 rounded-full">
-        <Text className="text-center font-bold">Google</Text>
+      <Text className="text-center text-white mb-2">Or sign up with</Text>
+
+      {/* Google Button */}
+      <TouchableOpacity className="bg-white py-3 rounded-full mx-8 flex-row items-center justify-center mb-6">
+        <MaterialCommunityIcons name="google" size={20} />
+        <Text className="font-bold ml-2">Google</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );
