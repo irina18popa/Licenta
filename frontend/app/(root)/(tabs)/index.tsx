@@ -1,24 +1,36 @@
-import { View, Text, TouchableOpacity, Image, StatusBar, TextInput, FlatList, ImageSourcePropType, ListRenderItem, Switch, Alert } from 'react-native'
-import React, { useState } from 'react'
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Image,
+  StatusBar,
+  TextInput,
+  FlatList,
+  ImageSourcePropType,
+  ListRenderItem,
+  Switch,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
+import React, { useEffect, useState } from 'react';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import images from '../../../constants/images'
+import images from '../../../constants/images';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { getDevices } from '@/app/apis'; // adjust path if needed
 
 const WEATHER_API_KEY = 'YOUR_OPENWEATHERMAP_API_KEY';
 const CITY_NAME = 'City Name'; // make dynamic if needed
 
-const rooms = [
-  { id: '1', name: 'Living room', image: images.livingroom },
-  { id: '2', name: 'Bedroom 1', image: images.bedroom },
-  // more rooms
-];
 
-// Device data
-const initialDevices = [
-  { id: '1', name: 'JVC TV', icon: <Ionicons name="tv-outline" size={24} color="white" />, status: true },
-  { id: '2', name: 'Smart lamp', icon: <Ionicons name="bulb-outline" size={24} color="white" />, status: true },
-];
+// RawDevice matches exactly what your API returns
+interface RawDevice {
+  _id: string;
+  name: string;
+  type: 'tv' | 'lamp' | string;
+  status: boolean;
+  // …any other fields from your backend…
+}
 
 interface Weather {
   main: {
@@ -28,7 +40,7 @@ interface Weather {
   };
   weather: Array<{
     description: string;
-    icon: string
+    icon: string;
   }>;
   wind: {
     speed: number;
@@ -41,97 +53,124 @@ interface Room {
   image: ImageSourcePropType;
 }
 
+const rooms: Room[] = [
+  { id: '1', name: 'Living room', image: images.livingroom },
+  { id: '2', name: 'Bedroom 1', image: images.bedroom },
+  // more rooms
+];
 
 const HomeScreen = () => {
   const [weather, setWeather] = useState<Weather | null>(null);
   const [searchText, setSearchText] = useState('');
-  const [selectedTab, setSelectedTab] = useState<'Rooms'|'Devices'>('Rooms');
-  const [devices, setDevices] = useState(initialDevices);
+  const [selectedTab, setSelectedTab] = useState<'Rooms' | 'Devices'>('Rooms');
+  const [devices, setDevices] = useState<RawDevice[]>([]);
+  const [loadingDevices, setLoadingDevices] = useState(true);
+  const [deviceError, setDeviceError] = useState<string | null>(null);
 
-  const router = useRouter()
+  const router = useRouter();
 
-  const TwoButtonAlert = ()=>
+  const TwoButtonAlert = () => {
+    Alert.alert('Add device', 'Choose a device type:', [
       {
-          Alert.alert("Add device", "Choose a device type:",[
-              {
-                  text:"Tuya",
-                  onPress:()=>console.log("Cancel Pressed"),
-                  style:"cancel"
-              },
-              {
-                  text:"UPNP",
-                  onPress:()=> router.navigate('/AddDevice'),
-              }
-          ])
-      }
+        text: 'Tuya',
+        onPress: () => console.log('Tuya selected'),
+        style: 'cancel',
+      },
+      {
+        text: 'UPNP',
+        onPress: () => router.navigate('/AddDevice'),
+      },
+    ]);
+  };
 
-  // useEffect(() => { fetchWeather(); }, []);
+  useEffect(() => {
+    let isMounted = true;
 
-  // const fetchWeather = async () => {
-  //   try {
-  //     const res = await fetch(
-  //       `https://api.openweathermap.org/data/2.5/weather?q=${CITY_NAME}&units=metric&appid=${WEATHER_API_KEY}`
-  //     );
-  //     const data = await res.json();
 
-  //     if (!res.ok || typeof data.main?.temp !== 'number') {
-  //     console.warn('Weather API error:', data);
-  //     return;
-  //   }
+    getDevices()
+      .then((rawList: RawDevice[]) => {
+        if (!isMounted) return;
+          setDevices(rawList);
+          setLoadingDevices(false);
+      })
+      .catch((err) => {
+        if (!isMounted) return;
+          setDeviceError(err.message || 'Failed to fetch devices');
+          setLoadingDevices(false);
+      });
 
-  //   setWeather(data);
-  //     setWeather(data);
-  //   } catch (err) {
-  //     console.error(err);
-  //   }
-  // };
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
-  const toggleDevice = (id: string) => {
-    setDevices(prev => prev.map(dev => dev.id === id ? { ...dev, status: !dev.status } : dev));
+  const toggleDevice = (_id: string) => {
+    setDevices((prev) =>
+      prev.map((d) => (d._id === _id ? { ...d, status: !d.status } : d))
+    );
+    // If you need to send a toggle‐API call to the backend, do it here.
   };
 
   const renderRoom: ListRenderItem<Room> = ({ item }) => (
-    <TouchableOpacity className="mr-4 w-60" onPress={() => router.navigate('/properties/Remote2')}>
+    <TouchableOpacity
+      className="mr-4 w-60"
+      onPress={() => router.navigate('/properties/Remote2')}
+    >
       <Image source={item.image} className="w-full h-72 rounded-xl mb-2" />
       <Text className="text-lg font-bold text-gray">{item.name}</Text>
     </TouchableOpacity>
   );
 
-  const renderDevice: ListRenderItem<typeof devices[0]> = ({ item }) => {
-  // item.id is a string, so compare to '2'
-  const screen =
-    item.id === '2'
-      ? '/properties/LampControl'
-      : '/properties/Remote3';  ///properties/RemoteControl
+const renderDevice: ListRenderItem<RawDevice> = ({ item }) => {    
+  const iconName: React.ComponentProps<typeof Ionicons>['name'] =
+      item.type === 'tv'
+        ? 'tv-outline'
+        : item.type === 'lamp'
+        ? 'bulb-outline'
+        : 'apps-outline';
 
-  return (
-    <TouchableOpacity
-      className="flex-row justify-between items-center bg-black bg-opacity-50 mx-5 my-2 rounded-xl p-4"
-      onPress={() => router.navigate(screen)}
-    >
-      <View className="flex-row items-center">
-        {item.icon}
-        <View className="ml-3">
-          <Text className="text-white text-lg font-bold">
-            {item.name}
-          </Text>
-          <View className="flex-row items-center">
-            <View className={`w-2 h-2 rounded-full mr-1 ${
+    let screen="";
+    switch (item.type) {
+      case 'lamp':
+        screen = '/properties/LampControl';
+        break;
+      case 'tv':
+        screen = '/properties/Remote3';
+        break;
+      default:
+        screen = '/properties/LampControl';
+    }
+
+    return (
+      <TouchableOpacity
+        className="flex-row justify-between items-center bg-black bg-opacity-50 mx-5 my-2 rounded-xl p-4"
+        onPress={() => router.navigate(screen)}
+      >
+        <View className="flex-row items-center">
+          <Ionicons name={iconName} size={24} color="white" />
+          <View className="ml-3">
+            <Text className="text-white text-lg font-bold">{item.name}</Text>
+            <View className="flex-row items-center">
+              <View
+                className={`w-2 h-2 rounded-full mr-1 ${
                   item.status ? 'bg-green-400' : 'bg-red-600'
-                }`}/>
-            <Text className="text-white">{item.status ? 'Online' : 'Offline'}</Text>
+                }`}
+              />
+              <Text className="text-white">
+                {item.status ? 'Online' : 'Offline'}
+              </Text>
+            </View>
           </View>
         </View>
-      </View>
-      <Switch
-        value={item.status}
-        onValueChange={() => toggleDevice(item.id)}
-        trackColor={{ true: '#34D399', false: '#9CA3AF' }}
-        thumbColor={item.status ? '#10B981' : '#F3F4F8'}
-      />
-    </TouchableOpacity>
-  );
-};
+        <Switch
+          value={item.status}
+          onValueChange={() => toggleDevice(item._id)}
+          trackColor={{ true: '#34D399', false: '#9CA3AF' }}
+          thumbColor={item.status ? '#10B981' : '#F3F4F8'}
+        />
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-white-100">
@@ -140,7 +179,10 @@ const HomeScreen = () => {
 
       {/* Header */}
       <View className="flex-row justify-between items-center px-5 pt-3">
-        <TouchableOpacity className="flex-row items-center" onPress={() => router.navigate('/Profile')}>
+        <TouchableOpacity
+          className="flex-row items-center"
+          onPress={() => router.navigate('/Profile')}
+        >
           <Image source={images.avatar} className="w-10 h-10 rounded-full mr-3" />
           <View>
             <Text className="text-sm text-white">Good Morning</Text>
@@ -181,9 +223,15 @@ const HomeScreen = () => {
           />
           <View className="ml-4 flex-1">
             <Text className="text-4xl font-bold text-white">{Math.round(weather.main.temp)}°</Text>
-            <Text className="text-sm text-white mb-1">Feels like {Math.round(weather.main.feels_like)}°</Text>
-            <Text className="text-base text-white capitalize">{weather.weather[0].description}</Text>
-            <Text className="text-xs text-blue-200 mt-2">Wind: {weather.wind.speed} m/s   Humidity: {weather.main.humidity}%</Text>
+            <Text className="text-sm text-white mb-1">
+              Feels like {Math.round(weather.main.feels_like)}°
+            </Text>
+            <Text className="text-base text-white capitalize">
+              {weather.weather[0].description}
+            </Text>
+            <Text className="text-xs text-blue-200 mt-2">
+              Wind: {weather.wind.speed} m/s   Humidity: {weather.main.humidity}%
+            </Text>
           </View>
         </View>
       )}
@@ -191,16 +239,32 @@ const HomeScreen = () => {
       {/* Tabs */}
       <View className="flex-row bg-white rounded-lg p-1 mt-5 w-40 mx-auto">
         <TouchableOpacity
-          className={`flex-1 items-center py-2 rounded-lg ${selectedTab === 'Rooms' ? 'bg-blue-500' : ''}`}
+          className={`flex-1 items-center py-2 rounded-lg ${
+            selectedTab === 'Rooms' ? 'bg-blue-500' : ''
+          }`}
           onPress={() => setSelectedTab('Rooms')}
         >
-          <Text className={`text-base font-semibold ${selectedTab === 'Rooms' ? 'text-white' : 'text-gray-600'}`}>Rooms</Text>
+          <Text
+            className={`text-base font-semibold ${
+              selectedTab === 'Rooms' ? 'text-white' : 'text-gray-600'
+            }`}
+          >
+            Rooms
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          className={`flex-1 items-center py-2 rounded-lg ${selectedTab === 'Devices' ? 'bg-blue-500' : ''}`}
+          className={`flex-1 items-center py-2 rounded-lg ${
+            selectedTab === 'Devices' ? 'bg-blue-500' : ''
+          }`}
           onPress={() => setSelectedTab('Devices')}
         >
-          <Text className={`text-base font-semibold ${selectedTab === 'Devices' ? 'text-white' : 'text-gray-600'}`}>Devices</Text>
+          <Text
+            className={`text-base font-semibold ${
+              selectedTab === 'Devices' ? 'text-white' : 'text-gray-600'
+            }`}
+          >
+            Devices
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -210,21 +274,30 @@ const HomeScreen = () => {
           data={rooms}
           horizontal
           showsHorizontalScrollIndicator={false}
-          keyExtractor={item => item.id}
+          keyExtractor={(item) => item.id}
           renderItem={renderRoom}
           contentContainerStyle={{ paddingVertical: 20, paddingLeft: 20 }}
         />
+      ) : loadingDevices ? (
+        <View className="flex-1 justify-center items-center">
+          <ActivityIndicator size="large" color="#fff" />
+          <Text className="text-white mt-2">Loading devices…</Text>
+        </View>
+      ) : deviceError ? (
+        <View className="flex-1 justify-center items-center">
+          <Text className="text-red-500">Error: {deviceError}</Text>
+        </View>
       ) : (
         <FlatList
           data={devices}
           showsVerticalScrollIndicator={false}
-          keyExtractor={item => item.id}
+          keyExtractor={(item) => item._id}
           renderItem={renderDevice}
           contentContainerStyle={{ paddingVertical: 20 }}
         />
       )}
     </SafeAreaView>
-  )
-}
+  );
+};
 
-export default HomeScreen
+export default HomeScreen;
