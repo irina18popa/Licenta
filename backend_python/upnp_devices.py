@@ -30,9 +30,7 @@ async def get_friendly_name(location_url):
 
 def get_mac(ip_address: str) -> str:
     mac = get_mac_address(ip=ip_address)
-    if mac:
-        print(f"MAC address for {ip_address} is {mac}")
-    else:
+    if not mac:
         print(f"Could not determine MAC address for {ip_address}")
     return mac
 
@@ -72,7 +70,7 @@ async def scan_ssdp():
                 }
 
                 device_data.append(device_entry)
-                print(f"Discovered Device: {device_entry}")
+                #print(f"Discovered Device: {device_entry}")
 
     try:
         local_ip = get_host_ip()
@@ -87,6 +85,27 @@ async def scan_ssdp():
 
     return device_data
 
+
+async def device_exists(target_uuid: str) -> bool:
+    """
+    Scan for UPnP devices and check if any device's 'uuid' matches target_uuid.
+    Return True if found, False otherwise.
+    """
+    # Normalize the parameter
+    target_uuid = target_uuid.lower()
+
+    # Run the existing scan_ssdp() to get a list of devices
+    discovered = await scan_ssdp()
+
+    # Check for a matching UUID (case‐insensitive)
+    for device in discovered:
+        dev_uuid = device.get("uuid", "").lower()
+        if dev_uuid == target_uuid:
+            return True
+
+    return False
+
+
 # if __name__ == "__main__":
 #     discovered_devices = asyncio.run(scan_ssdp())
 
@@ -94,3 +113,15 @@ async def scan_ssdp():
 #     print("\nFinal List of Discovered SSDP Devices:")
 #     for device in discovered_devices:
 #         print(device)
+
+
+# async def main():
+#     uuid_to_find = "141435d6-eb51-18db-8000-0009dfea21d4"
+#     exists = await device_exists(uuid_to_find)
+#     if exists:
+#         print(f"Device with UUID {uuid_to_find} was found.")
+#     else:
+#         print(f"Device with UUID {uuid_to_find} not found.")
+
+# if __name__ == "__main__":
+#     asyncio.run(main())
