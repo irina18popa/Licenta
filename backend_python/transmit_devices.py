@@ -4,7 +4,7 @@ import asyncio
 from upnp_devices import scan_ssdp, device_exists
 from ble_scan import scan_ble
 from upnp_commands import get_upnp_actions
-from testTuya.device import get_tuya_device, get_tuya_device_commands
+from testTuya.device import get_tuya_device, get_tuya_device_commands, get_tuya_device_status
 
 
 # Configure your MQTT broker and topics
@@ -31,10 +31,11 @@ def on_connect(client, userdata, flags, rc):
 
 
 def on_message(client, userdata, msg):
-    print(f"Message received on topic {msg.topic}: {msg.payload.decode()}")
 
     if msg.topic == TOPIC_SUB:
         handle_discover(client, msg)
+        print(f"Message received on topic {msg.topic}: {msg.payload.decode()}")
+
 
     elif msg.topic == TOPIC_SUB2:
         handle_commands(client, msg)
@@ -51,7 +52,7 @@ def handle_discover(client, msg):
         loop = asyncio.get_event_loop()
         device_data = loop.run_until_complete(discover_devices())
         client.publish(TOPIC_PUB, json.dumps(device_data), retain=False)
-        print(f"Published device data to {TOPIC_PUB}")
+        #print(f"Published device data to {TOPIC_PUB}")
 
 # Handle command logic (protocol/IP_addr)
 def handle_commands(client, msg):
@@ -81,7 +82,7 @@ def handle_commands(client, msg):
             return
     
         client.publish(TOPIC_PUB2, json.dumps(actions), retain=False)
-        print(f"Published actions to {TOPIC_PUB2}")
+        #print(f"Published actions to {TOPIC_PUB2}")
 
     except ValueError:
         print("Invalid payload format. Expected: protocol/IP_addr")
@@ -95,25 +96,31 @@ def handle_status_device(client, msg):
     """
     payload = msg.payload.decode().strip()
     try:
-        protocol, uuid_val = payload.split("/", 1)
-        protocol = protocol.lower()
-        uuid_val = uuid_val.strip()
+        db_id, protocol, id_val = payload.split("/")
+    # Trim whitespace just in case
+        db_id = db_id.strip()
+        protocol = protocol.strip()
+        id_val = id_val.strip()
 
-        if protocol != "upnp":
-            print(f"handle_status_device: Unsupported protocol '{protocol}'")
-            return
-
-        # Run the device_exists coroutine to see if this UUID is present
         loop = asyncio.get_event_loop()
-        found = loop.run_until_complete(device_exists(uuid_val))
+        #print(f"handle_status_device: protocol '{protocol}'")
 
-        if found:
-            status_msg = "online"
+        if protocol == "upnp":
+            found = loop.run_until_complete(device_exists(id_val))
+            #return
+        elif protocol == "TUYA":
+            found = loop.run_until_complete(get_tuya_device_status(id_val))
         else:
-            status_msg = "offline"
+            print("error")
+            return 
+        
+        if found:
+            status_msg = f"{db_id}/online"
+        else:
+            status_msg = f"{db_id}/offline"
 
         client.publish(TOPIC_PUB3, status_msg, retain=False)
-        print(f"Published status for {uuid_val} → {found}")
+        #print(f"Published status for {id_val} → {found}")
 
     except ValueError:
         print("handle_status_device: Invalid payload format. Expected 'upnp/<uuid_val>'")

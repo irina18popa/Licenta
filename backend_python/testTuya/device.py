@@ -110,11 +110,27 @@ async def get_tuya_device() -> list:
     #3️⃣ Print final combined JSON
     #print(json.dumps(output, indent=4))
 
+
+async def get_tuya_device_status(device_tuya_id:str) -> bool:
+    response = await asyncio.to_thread(openapi.get, f"/v1.0/devices/{device_tuya_id}")
+    online = response.get("result", {}).get("online", False)
+
+    return online
+
+# async def main():
+#     device_id = "bfbdeb81177e0fca75y6ws"
+#     status = await get_tuya_device_status(device_id)
+#     print(f"Device is {status}")
+
+
 # async def main():
 #     # 1️⃣ Fetch all devices
 #     devices = await get_tuya_device()
 #     print("Devices:")
 #     print(json.dumps(devices, indent=2))
+
+#asyncio.run(main())
+
     
 #     # 2️⃣ For each device, fetch its command list
 #     for dev in devices:
@@ -123,8 +139,6 @@ async def get_tuya_device() -> list:
 #         print(f"\nCommands for device {device_id}:")
 #         print(json.dumps(cmds, indent=2))
 
-# if __name__ == "__main__":
-#     asyncio.run(main())
 
 #print(json.dumps(get_tuya_device_commands('bfbdeb81177e0fca75y6ws'), indent=4))
 
