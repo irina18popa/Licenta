@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
+import { io, Socket } from "socket.io-client";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -43,6 +44,9 @@ const rooms: Room[] = [
   // …etc.
 ];
 
+const SOCKET_SERVER_URL = 'http://192.168.1.135:3000';
+
+
 const HomeScreen = () => {
   const [weather, setWeather] = useState<Weather | null>(null);
   const [searchText, setSearchText] = useState("");
@@ -60,14 +64,16 @@ const HomeScreen = () => {
     ]);
   };
 
+  const socketRef = useRef<Socket | null>(null);
+
   // Polling ref so we can clear on unmount
   const pollingRef = useRef<number | null>(null);
 
   useEffect(() => {
-    // Helper to fetch & set devices
+    // 1) Initial fetch (so we have something to display right away)
     const fetchDevices = async () => {
       try {
-        const rawList = await getDevices(); // returns RawDevice[]
+        const rawList = await getDevices(); // REST API: GET /devices
         setDevices(rawList);
         setDeviceError(null);
       } catch (err: any) {
@@ -77,17 +83,36 @@ const HomeScreen = () => {
       }
     };
 
-    // First fetch immediately
     fetchDevices();
 
-    // Then schedule every 1000ms
-    pollingRef.current = setInterval(fetchDevices, 1000);
+    // 2) Connect to Socket.io
+    socketRef.current = io(SOCKET_SERVER_URL, {
+      transports: ["websocket"],
+      // If you move to HTTPS/WSS, just do: "https://your‐domain.com"
+    });
 
-    // Clean up on unmount
+    // 3) Listen for “device:status_changed” events
+    socketRef.current.on("device:status_changed", ({ deviceId, newStatus }) => {
+      // Update local state for just that one device:
+      setDevices((prevDevices) =>
+        prevDevices.map((d) =>
+          d._id === deviceId ? { ...d, status: newStatus } : d
+        )
+      );
+    });
+
+    // 4) Optionally: Listen for new device discovery or command returns
+    // socketRef.current.on("device:discovered", (newDevice: RawDevice) => {
+    //   setDevices((prev) => [...prev, newDevice]);
+    // });
+
+    // socketRef.current.on("device:command_return", (payload: any) => {
+    //   console.log("Command return from backend:", payload);
+    //   // …you can surface that in your UI if needed…
+    // });
+
     return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-      }
+      socketRef.current?.disconnect();
     };
   }, []);
 
@@ -155,13 +180,13 @@ const HomeScreen = () => {
             </View>
           </View>
         </View>
-        <Switch
+        {/* <Switch
           value={isOnline}
           onValueChange={() => toggleDevice(item._id)}
           trackColor={{ true: "#34D399", false: "#9CA3AF" }}
           thumbColor={isOnline ? "#10B981" : "#F3F4F8"}
           disabled={!isOnline}
-        />
+        /> */}
       </TouchableOpacity>
     );
   };

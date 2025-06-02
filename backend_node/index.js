@@ -1,7 +1,10 @@
 import express from "express";
 import dotenv from "dotenv";
 import axios from "axios";
-import mqtt from "mqtt";  // Import MQTT package
+import mqtt from "mqtt"; 
+import http from "http";
+import { Server as SocketIOServer } from "socket.io";
+
 import { connectDB } from "./config/db.js";
 import userRoutes from "./routes/UserRoutes.js";
 import deviceRoutes from "./routes/DeviceRoutes.js";
@@ -17,6 +20,17 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(express.json());
+
+// 1) Create a raw HTTP server so Socket.io can attach to it:
+const httpServer = http.createServer(app);
+// 2) Instantiate Socket.io on that HTTP server:
+const io = new SocketIOServer(httpServer, {
+  // (When you switch to HTTPS/WSS later, just point origin to https://your‐domain)
+  cors: {
+    origin: process.env.FRONTEND_ORIGIN || "http://localhost:19006", // your React Native dev URL
+    methods: ["GET", "POST"],
+  },
+});
 
 // MQTT Configuration
 const MQTT_BROKER = process.env.MQTT_BROKER || "mqtt://192.168.1.136";
@@ -53,49 +67,78 @@ mqttClient.on("connect", () => {
   // Subscribe to the discovered topic
   mqttClient.subscribe(TOPIC_SUB, (err) => {
     if (err) console.error("Subscription error:", err);
-    else console.log(`Subscribed to ${TOPIC_SUB}`);
+    //else console.log(`Subscribed to ${TOPIC_SUB}`);
   });
 
   mqttClient.subscribe(TOPIC_SUB2, (err) => {
     if (err) console.error("Subscription error:", err);
-    else console.log(`Subscribed to ${TOPIC_SUB2}`);
+    //else console.log(`Subscribed to ${TOPIC_SUB2}`);
   });
 
     // 2) **NEW**: subscribe to status/out so we can log "Online"/"Offline"
   mqttClient.subscribe(STATUS_OUT, { qos: 0 }, (err) => {
     if (err) console.error("Subscription error:", err);
-    else console.log(`Subscribed to ${STATUS_OUT}`);
+   // else console.log(`Subscribed to ${STATUS_OUT}`);
   });
 });
 
 // 3) **NEW**: every second, publish a POST to our own HTTP handler
   //    that will in turn publish to "app/devices/status/in"
   //    Replace <uuid> with whichever UUID you need each second.
-  const uuidToCheck = "141435d6-eb51-18db-8000-0009dfea21d4";
+  // Every second, fetch all devices from your database and publish a heartbeat
 
-  setInterval(async () => {
-    try {
-      await axios.post(
-        `${process.env.LOCALHOST_URL}/mqtttopic/handle`,
-        {
-          topic: STATUS_IN,
-          type: "pub",
-          payload: `upnp/${uuidToCheck}`,
-        },
-        { timeout: 2000 }
-      );
-      // (No response body needed here; handleMQTTMessage will publish internally.)
-    } catch (err) {
-      console.error("Heartbeat POST error:", err.message);
+setInterval(async () => {
+  try {
+    // 1) Get all devices from your DB
+    const getRes = await axios.get(`${process.env.LOCALHOST_URL}/devices`);
+    const allDevices = getRes.data; // array of { protocol, uuid, manufacturer, ... }
+
+    // 2) For each device, build payload based on protocol/manufacturer
+    for (const device of allDevices) {
+      let payload = "";
+
+      if (device.protocol === "ble" && device.manufacturer === "TUYA") {
+        payload = `${device._id}/${device.manufacturer}/${device.metadata}`; // e.g. "TUYA/<metadata>"
+      } else if (device.protocol === "upnp") {
+        payload = `${device._id}/${device.protocol}/${device.uuid}`; // e.g. "upnp/<uuid>"
+      }
+      // 3) Only send if payload was set
+      if (payload) {
+        try {
+          await axios.post(
+            `${process.env.LOCALHOST_URL}/mqtttopic/handle`,
+            {
+              topic: STATUS_IN,
+              type: "pub",
+              payload,
+            },
+            { timeout: 2000 }
+          );
+        } catch (err) {
+          console.error(
+            `Heartbeat POST error for device ${device.uuid}:`,
+            err.response?.data || err.message
+          );
+        }
+      }
     }
-  }, 1000);
+  } catch (err) {
+    console.error(
+      "Failed to fetch devices for heartbeat:",
+      err.response?.data || err.message
+    );
+  }
+}, 1000);
+
+
 
 
 // Log incoming MQTT messages from "app/devices/discovered"
 mqttClient.on("message", async (topic, message) => {
-  console.log(`Received message on ${topic}`);
+  //console.log(`Received message on ${topic}`);
 
   if (topic === TOPIC_SUB) {
+    console.log(`Received message on ${topic}`);
     const devices = JSON.parse(message.toString());
   
     devices.forEach((device) => {
@@ -122,11 +165,11 @@ mqttClient.on("message", async (topic, message) => {
     (async() => {
       try {
         const payload = JSON.parse(message.toString());
-        console.log("Received payload:", payload);
+        //console.log("Received payload:", payload);
     
         await axios.post(`${process.env.LOCALHOST_URL}/devicecommands`, payload);
     
-        console.log("\nSent payload to API for DB saving\n");
+        //console.log("\nSent payload to API for DB saving\n");
     
       } catch (error) {
         console.error("Failed to send data to API:", error.response?.data || error.message);
@@ -136,10 +179,10 @@ mqttClient.on("message", async (topic, message) => {
 
    // 3) **NEW**: handle status/out replies (“Online” / “Offline”)
  if (topic === STATUS_OUT) {
-    const statusText = message.toString();
-    console.log(`Device status reply: ${statusText}`);
+    // The payload is now "<deviceId>/<statusText>"
+    const [deviceId, statusText] = message.toString().split("/");
 
-    const deviceId = "68348beeaaf17e82c553e25e";
+    //console.log(`Device ${deviceId} status reply: ${statusText}`);
 
     // Immediately-invoked async function so we can use await:
     (async () => {
@@ -151,7 +194,7 @@ mqttClient.on("message", async (topic, message) => {
         const device = getRes.data;
         const currentStatus = device.status;
 
-        console.log(`Current status in DB: ${currentStatus}`);
+        //console.log(`Current status in DB: ${currentStatus}`);
 
         // 2) Compare and only PUT if different
         if (currentStatus !== statusText) {
@@ -159,14 +202,14 @@ mqttClient.on("message", async (topic, message) => {
             `${process.env.LOCALHOST_URL}/devices/${deviceId}`,
             { status: statusText }
           );
-          console.log(
-            `Status changed. Updated device in DB:`,
-            putRes.data
-          );
+
+          //console.log(`Status changed. Updated device in DB:`, putRes.data);
+          io.emit("device:status_changed", { deviceId, newStatus: statusText });
+        
         } else {
-          console.log(
-            `No update needed. "${statusText}" matches DB already.`
-          );
+          // console.log(
+          //   `No update needed. "${statusText}" matches DB already.`
+          // );
         }
       } catch (err) {
         console.error("Error while checking/updating device status:", 
@@ -193,7 +236,7 @@ connectDB()
     seedMqttTopics();
 
     // Start listening after DB connection & seeding
-    app.listen(port, () => console.log(`Server running on port ${port}`));
+    httpServer.listen(port, () => console.log(`Server running on port ${port}`));
   })
   .catch((err) => {
     console.error("Database connection error:", err);

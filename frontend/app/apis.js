@@ -39,6 +39,7 @@ export async function saveDevice(deviceData) {
 
 export async function handleRequest(topic, type, payload) {
   try {
+    //console.log(`published to ${topic}`)
     const res = await axios.post(`${API_URL}/mqtttopic/handle`, {
       topic,
       type,
