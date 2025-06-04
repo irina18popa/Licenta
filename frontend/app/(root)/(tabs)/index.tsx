@@ -101,16 +101,6 @@ const HomeScreen = () => {
       );
     });
 
-    // 4) Optionally: Listen for new device discovery or command returns
-    // socketRef.current.on("device:discovered", (newDevice: RawDevice) => {
-    //   setDevices((prev) => [...prev, newDevice]);
-    // });
-
-    // socketRef.current.on("device:command_return", (payload: any) => {
-    //   console.log("Command return from backend:", payload);
-    //   // …you can surface that in your UI if needed…
-    // });
-
     return () => {
       socketRef.current?.disconnect();
     };

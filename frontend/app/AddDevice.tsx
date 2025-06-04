@@ -1,9 +1,13 @@
 import { View, Text, Image, TouchableOpacity, Modal } from 'react-native';
-import { useState, useRef } from 'react'; // useRef for persisting intervalRef
+import { useState, useRef, useEffect } from 'react'; // useRef for persisting intervalRef
 import { useNavigation } from '@react-navigation/native';
 import images from '../constants/images';
 import { handleRequest, fetchDiscoveredDevices, saveDevice } from './apis.js';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { io } from 'socket.io-client';
+
+const SOCKET_URL = "http://192.168.1.135:3000"; // ← Node’s LAN IP + port
+const DISCOVER_EVENT = "deviceDiscovered";
 
 const AddDevice = () => {
   
@@ -19,31 +23,53 @@ const AddDevice = () => {
   const navigation = useNavigation();
   const [devices, setDevices] = useState<Device[]>([]);
   const [scanning, setScanning] = useState<boolean>(false);
+  const [socket, setSocket] = useState(null);
   const [showModal, setShowModal] = useState<boolean>(false); // State to show/hide the modal
   const [savedDeviceName, setSavedDeviceName] = useState<string>(''); // State to store the saved device name
-  const intervalRef = useRef<NodeJS.Timeout | null>(null); // useRef to persist the interval
+
+  useEffect(() => {
+    // 1) Open one socket connection on mount
+    const sock = io(SOCKET_URL, {
+      transports: ["websocket"],
+    });
+
+    sock.on("connect", () => {
+      console.log("React Native: Socket connected →", sock.id);
+    });
+
+    // 2) When server emits a discovered device, add it to our local list
+    sock.on(DISCOVER_EVENT, (device) => {
+      //console.log("React Native: Received deviceDiscovered →", device);
+      setDevices((prev) => {
+        // Avoid duplicates by uuid
+        if (prev.some((d) => d.uuid === device.uuid)) return prev;
+        return [...prev, device];
+      });
+    });
+
+    // 3) Clean up on unmount
+    return () => {
+      sock.disconnect();
+    };
+  }, []);
 
   const startScan = async () => {
     try {
-      await handleRequest('app/devices/discover', 'pub', 'search');
-      console.log('Scan request sent');
+      // 4) Send a one-time request to Node to publish "search" on MQTT
+      await handleRequest("app/devices/discover", "pub", "search");
+      console.log("React Native: Scan requested");
       setScanning(true);
-
-      intervalRef.current = setInterval(async () => {
-        const foundDevices = await fetchDiscoveredDevices();
-        setDevices(foundDevices);
-      }, 5000);
-    } catch (error) {
-      console.log('Error:', error);
+      // From now on, each discovered device will arrive via socket
+    } catch (err) {
+      console.error("React Native: Failed to request scan:", err);
     }
   };
 
+
   const stopScan = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current); // Correctly clear the interval
+      //clearInterval(intervalRef.current); // Correctly clear the interval
       setScanning(false);
       console.log('Scan stopped');
-    }
   };
 
   // Function to handle saving a device when clicked
@@ -67,11 +93,8 @@ const AddDevice = () => {
 
       <View className="flex-1 items-center justify-center">
         <TouchableOpacity
-          onPress={() => {
-            if (!scanning) {
-              startScan();
-            }
-          }}
+          onPress={startScan}
+          disabled={scanning}
         >
           <View className="w-24 h-24 rounded-full border-4 border-blue-700 bg-blue-700 items-center justify-center">
             <View className="w-40 h-40 rounded-full border-4 border-blue-700 items-center justify-center">
