@@ -12,21 +12,41 @@ export async function getDevices() {
   }
 }
 
+export async function getDeviceById(id) {
+  try {
+    const res = await axios.get(`${API_URL}/devices/${id}`);
+    return res.data;
+  } catch (err) {
+    console.error(`Failed to fetch device ${id}:`, err.response?.data || err.message);
+    throw new Error('Failed to fetch device');
+  }
+}
+
+export async function updateDeviceById(id, updateData) {
+  try {
+    const res = await axios.put(`${API_URL}/devices/${id}`, updateData);
+    return res.data;
+  } catch (err) {
+    console.error(`Failed to update device ${id}:`, err.response?.data || err.message);
+    throw new Error('Failed to update device');
+  }
+}
+
 export async function saveDevice(deviceData) {
   try {
     const res = await axios.post(`${API_URL}/devices`, deviceData);
     const savedDevice = res.data;
-        console.log("\n" + savedDevice + "\n")
-
 
     // Call handleRequest with actual values
     if(savedDevice.protocol === "upnp")
     {
       await handleRequest("app/devices/commands/send", "pub", `${savedDevice.protocol}/${savedDevice.ipAddress}/${savedDevice._id}`);
+      await handleRequest("app/devices/state/in", "pub", `${savedDevice.protocol}/${savedDevice.metadata}`)
     }
-    else if(savedDevice.protocol === "ble")
+    else if(savedDevice.protocol === "ble" && savedDevice.manufacturer === "TUYA")
     {
       await handleRequest("app/devices/commands/send", "pub", `${savedDevice.protocol}/${savedDevice.metadata}/${savedDevice._id}`);
+      await handleRequest("app/devices/state/in", "pub", `${savedDevice.manufacturer}/${savedDevice.metadata}`)
     }
 
     return savedDevice;
@@ -39,7 +59,8 @@ export async function saveDevice(deviceData) {
 
 export async function handleRequest(topic, type, payload) {
   try {
-    //console.log(`published to ${topic}`)
+    console.log(`published to ${topic} payload: ${payload}`)
+
     const res = await axios.post(`${API_URL}/mqtttopic/handle`, {
       topic,
       type,

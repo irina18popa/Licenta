@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import images from '@/constants/images';
 import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
+import { useLocalSearchParams } from 'expo-router';
 
 
 const RemoteControlScreen: React.FC<{ scanning?: boolean }> = ({ scanning = false }) => {
@@ -12,6 +13,9 @@ const RemoteControlScreen: React.FC<{ scanning?: boolean }> = ({ scanning = fals
     const [isMuted, setIsMuted] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
     const [videoUri, setVideoUri] = useState<string | null>(null);
+
+    const { id } = useLocalSearchParams();
+    console.log("deviceId:", id);
 
   const pickVideo = async () => {
     // ask permission (on iOS you also need to add keys to Info.plist)

@@ -11,6 +11,7 @@ import deviceRoutes from "./routes/DeviceRoutes.js";
 import deviceCommandRoutes from "./routes/DeviceCommandRoutes.js";
 import discoveredDevicesRoutes from "./routes/TemporarlyDevicesRoutes.js";
 import mqttTopicRoutes from "./routes/MQTTTopicRoutes.js";
+import deviceStateRoutes from "./routes/DeviceStateRoutes.js"
 import { seedMqttTopics } from "./seed/MQTTSeed.js";
 import { saveDiscoveredDevice } from "./discoveredDevices.js";
 
@@ -38,6 +39,10 @@ const DISCOVER_OUT = "app/devices/discovered";
 const COMMANDS_OUT = "app/devices/commands/return";
 const STATUS_IN    = "app/devices/status/in";
 const STATUS_OUT   = "app/devices/status/out";
+const STATE_IN = "app/devices/state/in"
+const DO_COMMAND_IN = "app/devices/do_command/in"
+const STATE_OUT = "app/devices/state/out"
+const DO_COMMAND_OUT = "app/devices/do_command/out"
 
 const detectDeviceType = (deviceName) => {
   const name = deviceName.toLowerCase();
@@ -51,12 +56,56 @@ const detectDeviceType = (deviceName) => {
 // 1) Listen for Socket.IO “startScan” and publish to DISCOVER_IN
 io.on("connection", (socket) => {
   console.log(`📡 Socket connected: ${socket.id}`);
-  socket.on("startScan", () => {
-    console.log("→ socket ‘startScan’ received; publishing to MQTT to trigger scan");
-    mqttClient.publish(DISCOVER_IN, "search", { qos: 0 }, (err) => {
-      if (err) console.error("❌ Failed to publish DISCOVER_IN:", err);
-      else console.log(`✔ Published 'search' → ${DISCOVER_IN}`);
-    });
+  socket.on("startScan", async() => {
+
+    try {
+      // 1) Call your own GET /devices endpoint to fetch all devices
+      const resp = await axios.get(`${process.env.LOCALHOST_URL}/devices`);
+      //    (Adjust URL/port as needed.)
+
+      const devices = resp.data; 
+      // e.g. [ { protocol: "mqtt", id: "123" }, { protocol: "http", id: "xyz" }, … ]
+
+      // 2) Map them into ["mqtt/123", "http/xyz", …]
+      const payloadList = devices.map((d) => {
+        if (d.protocol === "upnp") {
+          // use uuid for UPnP devices
+          return `${d.protocol}/${d.uuid}`;
+        } else if (d.protocol === "ble" && d.manufacturer === "TUYA") {
+          // use manufacturer/metadata for BLE devices from TUYA
+          return `${d.manufacturer}/${d.metadata}`;
+        } else {
+          // fallback to protocol/_id
+          return `${d.protocol}/${d._id}`;
+        }
+      });
+      // 3) Serialize into JSON (or whatever string format you need)
+      const payloadString = JSON.stringify(payloadList);
+
+      // 4) Publish to MQTT
+      mqttClient.publish(
+        DISCOVER_IN,
+        payloadString,
+        { qos: 0 },
+        (err) => {
+          if (err) {
+            console.error("❌ Failed to publish DISCOVER_IN:", err);
+            // Optionally emit an error back to the client:
+            socket.emit("scanFailed", { error: err.message });
+          } else {
+            console.log(
+              `✔ Published device list → ${DISCOVER_IN}:`,
+              payloadString
+            );
+            // Optionally confirm back to the client:
+            socket.emit("scanPublished", { devices: payloadList });
+          }
+        }
+      );
+    } catch (err) {
+      console.error("❌ Error fetching devices from API:", err);
+      socket.emit("scanFailed", { error: err.message });
+    }
   });
 });
 
@@ -65,7 +114,7 @@ mqttClient.on("connect", async () => {
   console.log("🔌 Connected to MQTT broker, now seeding STATUS_IN");
 
   // Subscribe to the inbound topics we care about:
-  mqttClient.subscribe([ DISCOVER_OUT, COMMANDS_OUT, STATUS_OUT ], { qos: 0 }, (err) => {
+  mqttClient.subscribe([ DISCOVER_OUT, COMMANDS_OUT, STATUS_OUT, STATE_OUT, DO_COMMAND_OUT ], { qos: 0 }, (err) => {
     if (err) console.error("MQTT subscription error:", err);
   });
 
@@ -123,7 +172,6 @@ mqttClient.on("message", async (topic, message) => {
     };
     saveDiscoveredDevice(tempDevice);
     io.emit("deviceDiscovered", tempDevice);
-
   }
   
 
@@ -154,6 +202,52 @@ mqttClient.on("message", async (topic, message) => {
       }
     })();
   }
+
+
+  //aici trebuie sa fac getall in devicestate si daca nu exista deviceid sa creez entry
+
+  if (topic === STATE_OUT) {
+    try {
+      const parsed = JSON.parse(message.toString());
+      const deviceID = "123"; // hardcoded for now
+      const data = parsed.state;
+
+      if (!Array.isArray(data)) {
+        console.error("Invalid payload: 'state' must be an array");
+        return;
+      }
+
+      const url = `${process.env.LOCALHOST_URL}/devicestate/${deviceID}`;
+
+      try {
+        // Try to fetch the device state entry
+        const res = await axios.get(url);
+
+        // If found → update using PUT
+        await axios.put(url, {
+          deviceID,
+          data,
+        });
+
+      } catch (err) {
+        if (err.response && err.response.status === 404) {
+          // Not found → create new using POST
+          await axios.post(`${process.env.LOCALHOST_URL}/devicestate`, {
+            deviceID,
+            data,
+          });
+          console.log(`Created new device state for ${deviceID}`);
+        } else {
+          // Unexpected error
+          console.error("Error fetching device state:", err.message);
+        }
+      }
+
+    } catch (err) {
+      console.error("Failed to process MQTT message:", err);
+    }
+}
+
 });
 
 // (The rest of your Express setup remains unchanged)
@@ -163,6 +257,7 @@ app.use("/api/devices", deviceRoutes);
 app.use("/api/discovered", discoveredDevicesRoutes);
 app.use("/api/devicecommands", deviceCommandRoutes);
 app.use("/api/mqtttopic", mqttTopicRoutes(mqttClient));
+app.use("/api/devicestate", deviceStateRoutes)
 
 connectDB()
   .then(() => {

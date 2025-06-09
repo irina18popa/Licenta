@@ -23,6 +23,7 @@ interface RawDevice {
   name: string;
   type: "tv" | "lamp" | string;
   status: "online" | "offline";
+  manufacturer: string
   // …other fields…
 }
 
@@ -59,19 +60,14 @@ const HomeScreen = () => {
 
   const TwoButtonAlert = () => {
     Alert.alert("Add device", "Choose a device type:", [
-      { text: "Tuya", onPress: () => console.log("Tuya selected"), style: "cancel" },
-      { text: "UPNP", onPress: () => router.navigate("/AddDevice") },
+      { text: "Scan", onPress: () => router.navigate("/AddDevice") },
+      { text: "Cancel", onPress: () => console.log("Cancel"), style: "cancel" },
     ]);
   };
 
   const socketRef = useRef<Socket | null>(null);
 
-  // Polling ref so we can clear on unmount
-  const pollingRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    // 1) Initial fetch (so we have something to display right away)
-    const fetchDevices = async () => {
+  const fetchDevices = async () => {
       try {
         const rawList = await getDevices(); // REST API: GET /devices
         setDevices(rawList);
@@ -83,6 +79,9 @@ const HomeScreen = () => {
       }
     };
 
+
+  useEffect(() => {
+    // 1) Initial fetch (so we have something to display right away)
     fetchDevices();
 
     // 2) Connect to Socket.io
@@ -150,10 +149,15 @@ const HomeScreen = () => {
         screen = "/properties/LampControl";
     }
 
+    const isTuya = item.manufacturer === "TUYA"
+
     return (
       <TouchableOpacity
         className="flex-row justify-between items-center bg-black bg-opacity-50 mx-5 my-2 rounded-xl p-4"
-        onPress={() => router.navigate(screen)}
+        onPress={() => router.navigate({
+          pathname:screen,
+          params:{id:item._id},
+        })}
         disabled={!isOnline}
       >
         <View className="flex-row items-center">
@@ -170,19 +174,20 @@ const HomeScreen = () => {
             </View>
           </View>
         </View>
-        {/* <Switch
+        {isTuya && 
+        (<Switch
           value={isOnline}
           onValueChange={() => toggleDevice(item._id)}
           trackColor={{ true: "#34D399", false: "#9CA3AF" }}
           thumbColor={isOnline ? "#10B981" : "#F3F4F8"}
           disabled={!isOnline}
-        /> */}
+        />)}
       </TouchableOpacity>
     );
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white-100">
+    <SafeAreaView className="flex-1 bg-black">
       <Image
         source={images.background}
         className="absolute w-full h-full"
@@ -209,7 +214,7 @@ const HomeScreen = () => {
           <TouchableOpacity>
             <MaterialCommunityIcons name="qrcode-scan" size={24} color="#4B5563" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={TwoButtonAlert}>
+          <TouchableOpacity onPress={() => router.navigate("/AddDevice")}>
             <MaterialCommunityIcons name="plus" size={24} color="#4B5563" />
           </TouchableOpacity>
         </View>
@@ -273,7 +278,10 @@ const HomeScreen = () => {
           className={`flex-1 items-center py-2 rounded-lg ${
             selectedTab === "Devices" ? "bg-blue-500" : ""
           }`}
-          onPress={() => setSelectedTab("Devices")}
+          onPress={() => {
+            setSelectedTab("Devices");
+            fetchDevices();
+          }}
         >
           <Text
             className={`text-base font-semibold ${

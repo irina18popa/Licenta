@@ -1,19 +1,61 @@
+import { getDeviceById, handleRequest } from '@/app/apis';
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import Animated, { useAnimatedStyle, SharedValue } from 'react-native-reanimated';
-import ColorPicker, { Panel2, OpacitySlider, BrightnessSlider, InputWidget, ColorFormatsObject } from 'reanimated-color-picker';
+import Animated, { useAnimatedStyle, SharedValue, runOnJS } from 'react-native-reanimated';
+import ColorPicker, { Panel2, OpacitySlider, BrightnessSlider, InputWidget, ColorFormatsObject, colorKit } from 'reanimated-color-picker';
 
 interface MyColorPickerInlineProps {
   sharedColor: SharedValue<string>;
+  deviceID: string; // you can pass this from parent
 }
 
-const MyColorPicker = ({ sharedColor }: MyColorPickerInlineProps) => {
+const MyColorPicker = ({ sharedColor, deviceID }: MyColorPickerInlineProps) => {
   const backgroundStyle = useAnimatedStyle(() => ({ backgroundColor: sharedColor.value }));
+
+  const handleColorChange = async (hex: string) => {
+  try {
+    const hsv = colorKit.HSV(hex).object();
+
+    const payload = {
+      commands: [
+        {
+          code: 'colour_data_v2',
+          value: {
+            h: hsv.h,
+            s: Math.round(hsv.s * 10),
+            v: Math.round(hsv.v * 10),
+          }
+        }
+      ],
+    };
+
+    const res = await getDeviceById(deviceID);
+    const fullPayload = {
+      tuyaID: res.metadata || 'unknown',
+      ...payload // spread so "commands" is top-level
+    };
+
+    const topic = `app/devices/do_command/in`;
+    const type = 'pub';
+
+    await handleRequest(topic, type, JSON.stringify(fullPayload));
+
+  } catch (err) {
+    console.warn('Failed to send color payload:', err);
+  }
+};
 
   const onColorSelect = (col: ColorFormatsObject) => {
     'worklet';
+
     sharedColor.value = col.hex;
+
+    if (typeof col.hex === 'string') {
+      runOnJS(handleColorChange)(col.hex);
+    }
   };
+
+
 
   return (
     <Animated.View style={[styles.container, backgroundStyle]}>

@@ -4,7 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import images from '../constants/images';
 import { handleRequest, fetchDiscoveredDevices, saveDevice } from './apis.js';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { io } from 'socket.io-client';
+import { io, Socket } from 'socket.io-client';
 
 const SOCKET_URL = "http://192.168.1.135:3000"; // ← Node’s LAN IP + port
 const DISCOVER_EVENT = "deviceDiscovered";
@@ -20,10 +20,10 @@ const AddDevice = () => {
     metadata: Record<string, unknown>;
   };
 
+  const socketRef = useRef<Socket | null>(null);
   const navigation = useNavigation();
   const [devices, setDevices] = useState<Device[]>([]);
   const [scanning, setScanning] = useState<boolean>(false);
-  const [socket, setSocket] = useState(null);
   const [showModal, setShowModal] = useState<boolean>(false); // State to show/hide the modal
   const [savedDeviceName, setSavedDeviceName] = useState<string>(''); // State to store the saved device name
 
@@ -32,6 +32,8 @@ const AddDevice = () => {
     const sock = io(SOCKET_URL, {
       transports: ["websocket"],
     });
+
+    socketRef.current = sock;
 
     sock.on("connect", () => {
       console.log("React Native: Socket connected →", sock.id);
@@ -53,16 +55,16 @@ const AddDevice = () => {
     };
   }, []);
 
-  const startScan = async () => {
-    try {
-      // 4) Send a one-time request to Node to publish "search" on MQTT
-      await handleRequest("app/devices/discover", "pub", "search");
-      console.log("React Native: Scan requested");
-      setScanning(true);
-      // From now on, each discovered device will arrive via socket
-    } catch (err) {
-      console.error("React Native: Failed to request scan:", err);
+  const startScan = () => {
+    if (!socketRef.current || socketRef.current.disconnected) {
+      console.warn("Socket not connected yet!");
+      return;
     }
+
+    // 4) Emit “startScan” instead of HTTP POST
+    socketRef.current.emit("startScan");
+    console.log("React Native: Emitted ‘startScan’ → server");
+    setScanning(true);
   };
 
 
