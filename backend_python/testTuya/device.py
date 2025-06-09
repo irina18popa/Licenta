@@ -23,7 +23,6 @@ openapi.connect()
 
 
 
-
 def parse_json_properties(values):
     properties = []
 
@@ -117,6 +116,66 @@ async def get_tuya_device_status(device_tuya_id:str) -> bool:
 
     return online
 
+
+async def get_device_state(device_tuya_id:str):
+    try:
+        # Step 1: Fetch device status from Tuya
+        response = await asyncio.to_thread(
+            openapi.get, f"/v1.0/devices/{device_tuya_id}/status"
+        )
+
+        if not response.get("success"):
+            print(f"[ERROR] Failed to get status for device {device_tuya_id}")
+            return
+
+        status_array = response.get("result", [])
+
+        # Step 2: Format payload
+        payload = {
+            "state": status_array,  # directly include Tuya's format
+        }
+
+        return payload
+
+    except Exception as e:
+        print(f"[ERROR] Exception in get_device_state: {e}")
+
+
+async def do_command(tuya_id: str, commands: list):
+    """
+    Sends commands to a Tuya device and then fetches updated state.
+    Returns True if command request was successful, False otherwise.
+    """
+    try:
+        payload_combo = {
+            "commands": commands
+        }
+
+        # Step 1: Send the command
+        response = await asyncio.to_thread(
+            openapi.post,
+            f"/v1.0/iot-03/devices/{tuya_id}/commands",
+            payload_combo
+        )
+
+        if not response.get("success"):
+            print(f"[Tuya] Failed to send commands to {tuya_id}")
+            return False
+
+        # Step 2: Wait briefly (0.5s) then fetch device state
+        await asyncio.sleep(0.5)
+        updated_state = await get_device_state(tuya_id)
+
+        if not updated_state:
+            print(f"[Tuya] No updated state received for {tuya_id}")
+
+        return updated_state
+
+    except Exception as e:
+        print(f"[ERROR] do_command failed for {tuya_id}: {e}")
+        return False
+
+
 # async def main():
 #     device_id = "bfbdeb81177e0fca75y6ws"
 #     status = await get_tuya_device_status(device_id)
@@ -125,11 +184,10 @@ async def get_tuya_device_status(device_tuya_id:str) -> bool:
 
 # async def main():
 #     # 1️⃣ Fetch all devices
-#     devices = await get_tuya_device()
-#     print("Devices:")
-#     print(json.dumps(devices, indent=2))
+#     device_s = await get_device_state("bfbdeb81177e0fca75y6ws")
+#     print(json.dumps(device_s, indent=2))
 
-#asyncio.run(main())
+# asyncio.run(main())
 
     
 #     # 2️⃣ For each device, fetch its command list
@@ -218,20 +276,59 @@ async def get_tuya_device_status(device_tuya_id:str) -> bool:
 # print(json.dumps(response, indent=4))
 
 
-# payload = {
-#     "commands": [
-#         {
-#             "code": "switch_led",
-#             "value": False
-#         }
-#     ]
-# }
+payload = {
+    "commands": [
+        {
+            "code": "switch_led",
+            "value": False
+        }
+    ]
+}
 
-# # #Make a POST request to the API endpoint with the payload
-# response = openapi.post("/v1.0/iot-03/devices/bfbdeb81177e0fca75y6ws/commands", payload)
+payload_combo = {
+  "commands": [
+    # { 
+    #     "code": "switch_led",      
+    #     "value": True 
+    # },
+    # { 
+    #     "code": "work_mode", 
+    #     "value": "scene" 
+    # },
+    {
+        "code": "colour_data_v2", 
+        "value": 
+        {
+            "h":256,
+            "s":380,
+            "v":710
+        }
+    }
+    # { 
+    #     "code": "bright_value_v2", 
+    #     "value": 10 
+    # },
+    # { 
+    #     "code": "countdown_1",     
+    #     "value": 0 
+    # },
+    # {
+    #     "code": "temp_value_v2",
+    #     "value": 0,
+    # }
+  ]
+}
+
+
+
+
+# #Make a POST request to the API endpoint with the payload
+response = openapi.post("/v1.0/iot-03/devices/bfbdeb81177e0fca75y6ws/commands", payload_combo)
+response = openapi.get("/v1.0/devices/bfbdeb81177e0fca75y6ws/status")
+
 
 # # # Pretty-print the JSON respons
-# print(json.dumps(response, indent=4))
+print(json.dumps(response, indent=4))
 
 
 # payload_countdown = {
