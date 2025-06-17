@@ -17,6 +17,7 @@ const RemoteControlScreen: React.FC<{ scanning?: boolean }> = ({ scanning = fals
     const { id } = useLocalSearchParams();
     console.log("deviceId:", id);
 
+    
   const pickVideo = async () => {
     // ask permission (on iOS you also need to add keys to Info.plist)
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();

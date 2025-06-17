@@ -32,22 +32,119 @@ export async function updateDeviceById(id, updateData) {
   }
 }
 
+export async function saveMqttTopic(savedDevice) {
+  try {
+    const { _id, protocol, metadata, manufacturer, uuid, status } = savedDevice;
+    const baseUrl = `${API_URL}/mqtttopic`;
+
+    let param1 = "", param2 = "", param3 = "";
+
+    // Device-specific status topic
+    if (protocol === "upnp") {
+      param1 = protocol;
+      param2 = metadata;
+      param3 = uuid;
+
+      await axios.post(baseUrl, {
+        basetopic: `app/devices/${_id}/status/in`,
+        payload: `${param1}/${param3}/${status}`,
+        type: "publish",
+        qos: 1,
+      });
+
+    } else if (manufacturer === "TUYA") {
+      param1 = manufacturer;
+      param2 = metadata;
+
+      await axios.post(baseUrl, {
+        basetopic: `app/devices/${_id}/status/in`,
+        payload: `${param1}/${param2}/${status}`,
+        type: "publish",
+        qos: 1,
+      });
+    }
+
+    // Common topics
+
+    await axios.post(baseUrl, {
+        basetopic: `app/devices/${_id}/status/out`,
+        type: "subscribe",
+        qos: 1,
+    });
+
+    await axios.post(baseUrl, {
+      basetopic: `app/devices/${_id}/commands/in`,
+      payload: `${param1}/${param2}`,
+      type: "publish",
+      qos: 1,
+    });
+
+     await axios.post(baseUrl, {
+      basetopic: `app/devices/${_id}/commands/out`,
+      type: "subscribe",
+      qos: 1,
+    });
+
+    await axios.post(baseUrl, {
+      basetopic: `app/devices/${_id}/state/in`,
+      payload: `${param1}/${param2}`,
+      type: "publish",
+      qos: 1,
+    });
+
+     await axios.post(baseUrl, {
+      basetopic: `app/devices/${_id}/state/out`,
+      type: "subscribe",
+      qos: 1,
+    });
+
+    await axios.post(baseUrl, {
+      basetopic: `app/devices/${_id}/do_command/in`,
+      type: "publish",
+      qos: 1,
+    });
+
+    await axios.post(baseUrl, {
+      basetopic: `app/devices/${_id}/do_command/out`,
+      type: "subscribe",
+      qos: 1,
+    });
+
+  } catch (err) {
+    console.error("Failed to save MQTT topics:", err.response?.data || err.message);
+  }
+}
+
 export async function saveDevice(deviceData) {
   try {
     const res = await axios.post(`${API_URL}/devices`, deviceData);
     const savedDevice = res.data;
 
+    saveMqttTopic(savedDevice)
     // Call handleRequest with actual values
-    if(savedDevice.protocol === "upnp")
-    {
-      await handleRequest("app/devices/commands/send", "pub", `${savedDevice.protocol}/${savedDevice.ipAddress}/${savedDevice._id}`);
-      await handleRequest("app/devices/state/in", "pub", `${savedDevice.protocol}/${savedDevice.metadata}`)
-    }
-    else if(savedDevice.protocol === "ble" && savedDevice.manufacturer === "TUYA")
-    {
-      await handleRequest("app/devices/commands/send", "pub", `${savedDevice.protocol}/${savedDevice.metadata}/${savedDevice._id}`);
-      await handleRequest("app/devices/state/in", "pub", `${savedDevice.manufacturer}/${savedDevice.metadata}`)
-    }
+
+    const res2 = await axios.get(`${API_URL}/mqtttopic/${savedDevice._id}/commands/in`)
+    const topic1 = res2.data
+    console.log(`aici ${topic1}`)
+    await handleRequest(`${topic1.basetopic}/${topic1.deviceId}/${topic1.action}/${topic1.direction}`, `${topic1.type}`, `${topic1.payload}`)
+
+    const res3 = await axios.get(`${API_URL}/mqtttopic/${savedDevice._id}/state/in`)
+    const topic2 = res3.data
+        console.log(`aici ${topic2}`)
+
+    await handleRequest(`${topic2.basetopic}/${topic2.deviceId}/${topic2.action}/${topic2.direction}`, `${topic2.type}`, `${topic2.payload}`)
+
+
+    // if(savedDevice.protocol === "upnp")
+    // {
+    //   await handleRequest("app/commands/in", "pub", `${savedDevice.protocol}/${savedDevice.metadata}/${savedDevice._id}`);
+    //   await handleRequest("app/devices/state/in", "pub", `${savedDevice.protocol}/${savedDevice.metadata}`)
+    // }
+    // else if(savedDevice.manufacturer === "TUYA")
+    // {
+    //   await handleRequest("app/commands/in", "pub", `${savedDevice.manufacturer}/${savedDevice.metadata}/${savedDevice._id}`);
+    //   await handleRequest("app/devices/state/in", "pub", `${savedDevice.manufacturer}/${savedDevice.metadata}`)
+    // }
 
     return savedDevice;
   } catch (err) {

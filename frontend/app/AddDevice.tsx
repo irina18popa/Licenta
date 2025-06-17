@@ -78,7 +78,9 @@ const AddDevice = () => {
   const handleSaveDevice = async (device: Device) => {
     try {
       const savedDevice = await saveDevice(device); // Save device through the API
-      //console.log('Device saved:', device);
+      //comanda noua
+      setDevices((prev) => prev.filter((d) => d.uuid !== device.uuid)); // ✅ remove from list
+      
       setSavedDeviceName(device.name); // Set the name of the saved device
       setShowModal(true); // Show the modal with the success message
     } catch (error) {

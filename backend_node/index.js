@@ -34,9 +34,10 @@ const MQTT_BROKER = "mqtt://192.168.1.136";
 const mqttClient = mqtt.connect(MQTT_BROKER);
 
 // MQTT Topics
-const DISCOVER_IN  = "app/devices/discover";
-const DISCOVER_OUT = "app/devices/discovered";
-const COMMANDS_OUT = "app/devices/commands/return";
+const DISCOVER_IN  = "app/discover/in";
+const DISCOVER_OUT = "app/discover/out";
+const SUBSCRIBE_TOPIC = "hub/subscribe"  //topic la care publica server ul topicuri la care sa dea subscribe hub ul
+const COMMANDS_OUT = "app/devices/commands/out";
 const STATUS_IN    = "app/devices/status/in";
 const STATUS_OUT   = "app/devices/status/out";
 const STATE_IN = "app/devices/state/in"
@@ -62,7 +63,6 @@ io.on("connection", (socket) => {
       // 1) Call your own GET /devices endpoint to fetch all devices
       const resp = await axios.get(`${process.env.LOCALHOST_URL}/devices`);
       //    (Adjust URL/port as needed.)
-
       const devices = resp.data; 
       // e.g. [ { protocol: "mqtt", id: "123" }, { protocol: "http", id: "xyz" }, … ]
 
@@ -82,9 +82,15 @@ io.on("connection", (socket) => {
       // 3) Serialize into JSON (or whatever string format you need)
       const payloadString = JSON.stringify(payloadList);
 
+      //making the discover_in topic
+      const res = await axios.get(`${process.env.LOCALHOST_URL}/mqtttopic/null/discover/in`)
+      const basetopic = res.data
+
+      const finaltopic = `${basetopic.basetopic}/${basetopic.action}/${basetopic.direction}`
+
       // 4) Publish to MQTT
       mqttClient.publish(
-        DISCOVER_IN,
+        finaltopic,
         payloadString,
         { qos: 0 },
         (err) => {
@@ -94,11 +100,9 @@ io.on("connection", (socket) => {
             socket.emit("scanFailed", { error: err.message });
           } else {
             console.log(
-              `✔ Published device list → ${DISCOVER_IN}:`,
-              payloadString
-            );
+              `✔ Published device list`, payloadString);
             // Optionally confirm back to the client:
-            socket.emit("scanPublished", { devices: payloadList });
+            //socket.emit("scanPublished", { devices: payloadList });
           }
         }
       );
@@ -113,34 +117,90 @@ io.on("connection", (socket) => {
 mqttClient.on("connect", async () => {
   console.log("🔌 Connected to MQTT broker, now seeding STATUS_IN");
 
+  const directions = ["in", "out"];
+
+  for (const direction of directions) {
+    try {
+      await axios.get(`${process.env.LOCALHOST_URL}/mqtttopic/null/discover/${direction}`)
+      console.log(`✅ Topic exists for dir: ${direction}`);
+    } catch (err) {
+      if (err.response?.status === 404) {
+        console.log(`⛔ Topic not found, creating...`);
+
+        const basetopic = `app/discover/${direction}`;
+
+        await axios.post(`${API_URL}/mqtttopic`, {
+          basetopic,
+          type: direction === "in" ? "publish" : "subscribe",
+          deviceId: null,
+          qos: 0,
+          action,
+          direction,
+        });
+        console.log(`✅ Created topic`);
+      } else {
+        console.error(`❌ Error checking topic:`, err.message);
+      }
+    }
+
+  try {
   // Subscribe to the inbound topics we care about:
-  mqttClient.subscribe([ DISCOVER_OUT, COMMANDS_OUT, STATUS_OUT, STATE_OUT, DO_COMMAND_OUT ], { qos: 0 }, (err) => {
-    if (err) console.error("MQTT subscription error:", err);
-  });
+    // const res = await axios.get(`${process.env.LOCALHOST_URL}/mqtttopic/subscribe`);
+    // const allTopics = res.data;
+
+    // // Construct full topic strings
+    // const fullTopics = allTopics.map(topic => {
+    //   const { basetopic, deviceId, action, direction } = topic;
+
+    //   // If deviceId exists, append it (device-specific topic)
+    //   if (deviceId) {
+    //     return `${basetopic}/${deviceId}/${action}/${direction}`;
+    //   }
+    //   // If global topic (e.g., discover/commands), just return basetopic
+    //   return `${basetopic}/${action}/${direction}`;
+    // });
+
+    // console.log("Full MQTT topics:", fullTopics);
+    
+    // if (fullTopics.length === 0) {
+    //   console.warn("⚠️ No topics returned for subscription.");
+    //   return;
+    // }
+
+    // Subscribe to all dynamic topics
+    mqttClient.subscribe([
+      "app/discover/out",         // global
+      "app/devices/+/+/out"       // device-specific
+    ], { qos: 0 }, (err) => {
+      if (err) {
+        console.error("MQTT subscription error:", err);
+      } else {
+        console.log(`✅ Subscribed to ${fullTopics.length} topic(s):`, fullTopics);
+      }
+    });
+  } catch (err) {
+    console.error("❌ Failed to fetch subscribe topics from API:", err.message);
+  }
 
   // Now that we’re definitely connected, fetch all devices from our DB
   // and publish one “seed” message per device to STATUS_IN:
   try {
 
-    const getRes = await axios.get(`${process.env.LOCALHOST_URL}/devices`);
-    const allDevices = getRes.data;
+    const getRes = await axios.get(`${process.env.LOCALHOST_URL}/mqtttopic`);
+    const allTopics = getRes.data;
 
-    for (const device of allDevices) {
-      let payload = "";
+    for (const topic of allTopics) {
+      if (topic.deviceId && topic.action === "status" && topic.direction === "in") 
+      {
+        const fullTopic = `${topic.basetopic}/${topic.deviceId}/${topic.action}/${topic.direction}`
 
-      if (device.protocol === "ble" && device.manufacturer === "TUYA") {
-        // Format: "<db_id>/<protocolOrManufacturer>/<id_val>/<old_status>"
-        payload = `${device._id}/${device.manufacturer}/${device.metadata}/${device.status}`;
-      } else if (device.protocol === "upnp") {
-        payload = `${device._id}/${device.protocol}/${device.uuid}/${device.status}`;
-      }
-
-      if (payload) {
-        mqttClient.publish(STATUS_IN, payload, { qos: 0 }, (err) => {
-          if (err) {
-            console.error(`❌ Failed to publish ${payload} → ${STATUS_IN}:`, err);
-          }
-        });
+        if (topic.payload) {
+          mqttClient.publish(fullTopic, topic.payload, { qos: topic.qos }, (err) => {
+            if (err) {
+              console.error(`❌ Failed to publish to status topics`, err);
+            }
+          });
+        }
       }
     }
   } catch (err) {
@@ -149,10 +209,22 @@ mqttClient.on("connect", async () => {
       err.response?.data || err.message
     );
   }
+  }
 });
+
 
 // 3) Handle inbound MQTT messages:
 mqttClient.on("message", async (topic, message) => {
+  // const handlers = {
+  //   status: handleStatusUpdate,
+  //   state: handleStateUpdate,
+  //   commands: handleCommand,
+  // };
+
+  // const handler = handlers[action];
+  // if (handler) handler(deviceId, message);
+
+  
   if (topic === DISCOVER_OUT) {
     // DISCOVER_OUT emits an array of discovered-device objects
     //console.log(`Received DISCOVER_OUT: ${message.toString()}`);
@@ -174,21 +246,39 @@ mqttClient.on("message", async (topic, message) => {
     io.emit("deviceDiscovered", tempDevice);
   }
   
-
-  if (topic === COMMANDS_OUT) {
-    (async () => {
-      try {
-        const payload = JSON.parse(message.toString());
-        await axios.post(`${process.env.LOCALHOST_URL}/devicecommands`, payload);
-      } catch (error) {
-        console.error("Failed to send data to API:", error.response?.data || error.message);
-      }
-    })();
+  // Handle structured topics: app/devices/:deviceId/:action/out
+  const parts = topic.split("/");
+  if (parts.length !== 5 || parts[0] !== "app" || parts[1] !== "devices" || parts[4] !== "out") {
+    console.warn(`⚠️ Ignoring unexpected topic format: ${topic}`);
+    return;
   }
 
-  if (topic === STATUS_OUT) {
-    // STATUS_OUT sends messages like "<db_id>/<newStatus>"
-    const [deviceId, statusText] = message.toString().split("/");
+  const [, , deviceId, action, direction] = parts;
+
+  if (action === "commands") {
+    try {
+      const payload = JSON.parse(message.toString());
+      await axios.post(`${process.env.LOCALHOST_URL}/devicecommands`, payload);
+    } catch (error) {
+      console.error("Failed to send command to API:", error.response?.data || error.message);
+      return
+    }
+  }
+
+  // if (topic === COMMANDS_OUT) {
+  //   (async () => {
+  //     try {
+  //       const payload = JSON.parse(message.toString());
+  //       await axios.post(`${process.env.LOCALHOST_URL}/devicecommands`, payload);
+  //     } catch (error) {
+  //       console.error("Failed to send data to API:", error.response?.data || error.message);
+  //     }
+  //   })();
+  // }
+
+  if (action === "status") {
+    // STATUS_OUT sends messages like "<newStatus>"
+    const statusText = message.toString();
 
     (async () => {
       try {
@@ -199,6 +289,7 @@ mqttClient.on("message", async (topic, message) => {
         io.emit("device:status_changed", { deviceId, newStatus: statusText });
       } catch(err) {
         console.error("Failed to update status:", err.response?.data || err.message);
+        return
       }
     })();
   }
@@ -206,10 +297,9 @@ mqttClient.on("message", async (topic, message) => {
 
   //aici trebuie sa fac getall in devicestate si daca nu exista deviceid sa creez entry
 
-  if (topic === STATE_OUT) {
+  if (action === "state") {
     try {
       const parsed = JSON.parse(message.toString());
-      const deviceID = "123"; // hardcoded for now
       const data = parsed.state;
 
       if (!Array.isArray(data)) {
@@ -217,36 +307,32 @@ mqttClient.on("message", async (topic, message) => {
         return;
       }
 
-      const url = `${process.env.LOCALHOST_URL}/devicestate/${deviceID}`;
+      const url = `${process.env.LOCALHOST_URL}/devicestate/${deviceId}`;
 
       try {
         // Try to fetch the device state entry
         const res = await axios.get(url);
 
         // If found → update using PUT
-        await axios.put(url, {
-          deviceID,
-          data,
-        });
-
+        await axios.put(url, { deviceID: deviceId, data });
       } catch (err) {
-        if (err.response && err.response.status === 404) {
+        if (err.response?.status === 404) {
           // Not found → create new using POST
           await axios.post(`${process.env.LOCALHOST_URL}/devicestate`, {
-            deviceID,
+            deviceID: deviceId,
             data,
           });
-          console.log(`Created new device state for ${deviceID}`);
+          console.log(`Created new device state for ${deviceId}`);
         } else {
-          // Unexpected error
           console.error("Error fetching device state:", err.message);
+          return
         }
       }
-
     } catch (err) {
-      console.error("Failed to process MQTT message:", err);
+      console.error("Failed to process 'state' message:", err);
+      return
     }
-}
+  }
 
 });
 

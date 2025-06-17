@@ -1,10 +1,11 @@
 import express from "express";
 import {
   getAllMQTTTopics,
-  getMQTTTopicById,
+  getAllMQTTTopicsByType,
+  getTopicByDeviceActionDirection,
   createMQTTTopic,
-  updateMQTTTopic,
-  deleteMQTTTopic,
+  updateMQTTTopicByDeviceActionDirection,
+  deleteMQTTTopicsByDeviceId, 
   handleMQTTMessage
 } from "../controllers/MQTTTopicController.js";
 
@@ -13,11 +14,12 @@ const router = express.Router();
 const mqttTopicRoutes = (mqttClient) =>
 {
   router.get("/", getAllMQTTTopics);
-  router.get("/:id", getMQTTTopicById);
+  router.get("/:deviceId/:action/:direction", getTopicByDeviceActionDirection,);
+  router.get("/:type", getAllMQTTTopicsByType);
   router.post("/", createMQTTTopic);
   router.post("/handle", (req, res) =>handleMQTTMessage(req, res, mqttClient))
-  router.put("/:id", updateMQTTTopic);
-  router.delete("/:id", deleteMQTTTopic);
+  router.put("/:deviceId/:action/:direction", updateMQTTTopicByDeviceActionDirection);
+  router.delete("/:deviceId", deleteMQTTTopicsByDeviceId);
 
   return router
 }

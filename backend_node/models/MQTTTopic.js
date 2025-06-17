@@ -1,13 +1,16 @@
 import mongoose from "mongoose";
 
 const MqttTopicSchema = new mongoose.Schema({
-  topic: { type: String, required: true, unique: true },
-  payload: {type: String, default: null},
+  basetopic: { type: String, required: true },
+  payload: { type: String, default: null },
   type: { type: String, enum: ["subscribe", "publish"], required: true },
-  deviceId: { type: String, default: null },
+  deviceId: { type: String },
   qos: { type: Number, default: 1 },
-  timestamp: { type: Date, default: Date.now },
+  action: { type: String, enum: ["status", "state", "do_command"] },
+  direction: { type: String, enum: ["in", "out"] },
 });
 
+// Enforce uniqueness: one topic per deviceId-action-direction combo
+MqttTopicSchema.index({ deviceId: 1, action: 1, direction: 1 }, { unique: true });
 const MqttTopicModel = mongoose.models.MqttTopic || mongoose.model("MqttTopic", MqttTopicSchema);
 export default MqttTopicModel;
