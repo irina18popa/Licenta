@@ -4,7 +4,7 @@ import asyncio
 from async_upnp_client.aiohttp import AiohttpSessionRequester
 from async_upnp_client.client_factory import UpnpFactory
 
-async def get_upnp_actions(device_url, device_id):
+async def get_upnp_actions(device_url):
     async with aiohttp.ClientSession() as session:
         requester = AiohttpSessionRequester(session, with_sleep=True)
         factory = UpnpFactory(requester)
@@ -45,8 +45,9 @@ async def get_upnp_actions(device_url, device_id):
                 }
                 commands.append(command_info)
 
+
+        ####### aici am eliminat deviceId
         device_commands = {
-            "deviceID": device_id,
             "commands": commands
         }
 

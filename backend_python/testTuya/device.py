@@ -43,7 +43,7 @@ def parse_json_properties(values):
     return properties
 
 
-async def get_tuya_device_commands(device_tuya_id: str, device_id:str) -> dict:
+async def get_tuya_device_commands(device_tuya_id: str) -> dict:
     # call the blocking openapi.get in a thread
     functions_response = await asyncio.to_thread(
         openapi.get, f"/v1.0/iot-03/devices/{device_tuya_id}/functions"
@@ -74,7 +74,9 @@ async def get_tuya_device_commands(device_tuya_id: str, device_id:str) -> dict:
             "parameters": [param_info]
         })
 
-    return {"deviceID": device_id, "commands": commands}
+
+        ####### aici am eliminat deviceId
+    return {"commands": commands}
 
 
 # API for list of devices
@@ -328,7 +330,7 @@ response = openapi.get("/v1.0/devices/bfbdeb81177e0fca75y6ws/status")
 
 
 # # # Pretty-print the JSON respons
-print(json.dumps(response, indent=4))
+#print(json.dumps(response, indent=4))
 
 
 # payload_countdown = {

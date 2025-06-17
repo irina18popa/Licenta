@@ -10,15 +10,15 @@ from testTuya.device import get_tuya_device, get_tuya_device_commands, get_tuya_
 # ───────────────────────────────────────────────────────────────────────
 # MQTT broker + topics
 MQTT_BROKER  = "127.0.0.1"
-TOPIC_PUB    = "app/devices/discovered"
-TOPIC_PUB2   = "app/devices/commands/return"
+TOPIC_PUB    = "app/discover/out"
+TOPIC_PUB2   = "app/devices/commands/out"
 TOPIC_PUB3   = "app/devices/status/out"
 TOPIC_PUB4 = "app/devices/state/out"
 TOPIC_PUB5 = "app/devices/do_command/out"
 
 
-TOPIC_SUB    = "app/devices/discover"
-TOPIC_SUB2   = "app/devices/commands/send"
+TOPIC_SUB    = "app/discover/in"
+TOPIC_SUB2   = "app/devices/commands/in"
 TOPIC_SUB3   = "app/devices/status/in"
 TOPIC_SUB4 = "app/devices/state/in"
 TOPIC_SUB5 = "app/devices/do_command/in"
@@ -45,6 +45,8 @@ mqtt_client = mqtt.Client()
 def on_connect(client, userdata, flags, rc):
     print(f"[Python] Connected to MQTT broker (code {rc})")
     client.subscribe(TOPIC_SUB)  
+    client.subscribe("app/devices/+/+/in")
+
     client.subscribe(TOPIC_SUB2)
     client.subscribe(TOPIC_SUB3)    # Clear retained on TOPIC_PUB once
     client.subscribe(TOPIC_SUB4)
@@ -196,14 +198,14 @@ async def _do_handle_commands(raw: str):
     then await the appropriate command‐fetcher and publish to TOPIC_PUB2.
     """
     try:
-        protocol, addr, device_id = raw.split("/")
+        protocol, addr = raw.split("/")
         protocol = protocol.lower()
         if protocol == "upnp":
             DEVICE_DESC_URL = f"http://{addr}:2870/dmr.xml"
-            actions = await get_upnp_actions(DEVICE_DESC_URL, device_id)
+            actions = await get_upnp_actions(DEVICE_DESC_URL)
 
         elif protocol in ("ble", "tuya"):
-            actions = await get_tuya_device_commands(addr, device_id)
+            actions = await get_tuya_device_commands(addr)
 
         else:
             print(f"[Python] handle_commands: unsupported protocol '{protocol}'")
@@ -311,7 +313,10 @@ async def status_poll_loop():
             prior   = last_status.get(db_id)
 
             if prior != current:
-                payload = f"{db_id}/{current}"
+
+                #aici trebuie sa sterg db_id  din payload
+
+                payload = f"{current}"
                 mqtt_client.publish(TOPIC_PUB3, payload, qos=0, retain=False)
                 last_status[db_id] = current
 
