@@ -46,6 +46,7 @@ mqtt_client = mqtt.Client()
 
 # ───────────────────────────────────────────────────────────────────────
 def parse_topic(topic):
+    print(f"aici {topic}")
     parts = topic.split("/")
     if len(parts) == 5 and parts[0] == "app" and parts[1] == "devices" and parts[4] == "in":
         return {
@@ -53,8 +54,7 @@ def parse_topic(topic):
             "action": parts[3]
         }
     elif len(parts) == 3 and parts[0] == "app" and parts[1] == "discover" and parts[2] == "in":
-        return
-        {
+        return {
             "action": parts[1]
         }
     return None
@@ -70,7 +70,7 @@ def on_connect(client, userdata, flags, rc):
     # client.subscribe(TOPIC_SUB4)
     # client.subscribe(TOPIC_SUB5)
     client.publish(TOPIC_PUB, payload=None, retain=True)
-    client.publish(TOPIC_PUB2, payload=None, retain=True)
+    # client.publish(TOPIC_PUB2, payload=None, retain=True)
 
 
 def on_message(client, userdata, msg):
@@ -81,9 +81,8 @@ def on_message(client, userdata, msg):
     topic = msg.topic
     payload = msg.payload.decode().strip()
 
-    print(topic)
-
     parsed = parse_topic(topic)
+
     if parsed:
         topic_action = parsed["action"]
 
