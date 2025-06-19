@@ -35,8 +35,8 @@ const MyColorPicker = ({ sharedColor, deviceID }: MyColorPickerInlineProps) => {
       ...payload // spread so "commands" is top-level
     };
 
-    const topic = `app/devices/do_command/in`;
-    const type = 'pub';
+    const topic = `app/devices/${deviceID}/do_command/in`;
+    const type = 'publish';
 
     await handleRequest(topic, type, JSON.stringify(fullPayload));
 

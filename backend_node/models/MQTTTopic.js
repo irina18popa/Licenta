@@ -4,9 +4,9 @@ const MqttTopicSchema = new mongoose.Schema({
   basetopic: { type: String, required: true },
   payload: { type: String, default: null },
   type: { type: String, enum: ["subscribe", "publish"], required: true },
-  deviceId: { type: String },
+  deviceId: { type: String, default: null },
   qos: { type: Number, default: 1 },
-  action: { type: String, enum: ["status", "state", "do_command"] },
+  action: { type: String, enum: ["status", "state", "do_command", "commands", "discover"] },
   direction: { type: String, enum: ["in", "out"] },
 });
 

@@ -35,9 +35,8 @@ const LampControl = () => {
         const device = await getDeviceById(id as string);
         setDeviceName(device.name);
 
-        const tempID = "123"
         // 🔽 Fetch state (e.g., /api/devicestate/:deviceID)
-        const stateRes = await axios.get(`${API_URL}/devicestate/${tempID}`);
+        const stateRes = await axios.get(`${API_URL}/devicestate/${id}`);
         
         const colourData = stateRes.data?.data?.find((d: any) => d.code === 'colour_data_v2');
         if (colourData && colourData.value) {

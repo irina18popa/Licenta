@@ -81,9 +81,8 @@ io.on("connection", (socket) => {
       });
       // 3) Serialize into JSON (or whatever string format you need)
       const payloadString = JSON.stringify(payloadList);
-
       //making the discover_in topic
-      const res = await axios.get(`${process.env.LOCALHOST_URL}/mqtttopic/null/discover/in`)
+      const res = await axios.get(`${process.env.LOCALHOST_URL}/mqtttopic/device/null/discover/in`)
       const basetopic = res.data
 
       const finaltopic = `${basetopic.basetopic}/${basetopic.action}/${basetopic.direction}`
@@ -119,102 +118,74 @@ mqttClient.on("connect", async () => {
 
   const directions = ["in", "out"];
 
+  // Ensure both discover/in and discover/out exist
   for (const direction of directions) {
+    const basetopic = `app/discover/${direction}`;
+
     try {
-      await axios.get(`${process.env.LOCALHOST_URL}/mqtttopic/null/discover/${direction}`)
-      console.log(`✅ Topic exists for dir: ${direction}`);
+      const res = await axios.get(`${process.env.LOCALHOST_URL}/mqtttopic/device/null/discover/${direction}`);
+      console.log(`✅ Topic exists: ${JSON.stringify(res.data, null, 2)}`);
     } catch (err) {
       if (err.response?.status === 404) {
-        console.log(`⛔ Topic not found, creating...`);
+        console.log(`⛔ Topic not found: ${basetopic}, creating...`);
 
-        const basetopic = `app/discover/${direction}`;
-
-        await axios.post(`${API_URL}/mqtttopic`, {
-          basetopic,
-          type: direction === "in" ? "publish" : "subscribe",
-          deviceId: null,
-          qos: 0,
-          action,
-          direction,
-        });
-        console.log(`✅ Created topic`);
+        try {
+          await axios.post(`${process.env.LOCALHOST_URL}/mqtttopic`, {
+            basetopic,
+            type: direction === "in" ? "publish" : "subscribe",
+            deviceId: null,
+            qos: 0
+          });
+          console.log(`✅ Created topic: ${basetopic}`);
+        } catch (postErr) {
+          console.error(`❌ Failed to create topic "${basetopic}":`, postErr.response?.data?.message || postErr.message);
+        }
       } else {
-        console.error(`❌ Error checking topic:`, err.message);
+        console.error(`❌ Error checking topic "${basetopic}":`, err.message);
       }
     }
-
-  try {
-  // Subscribe to the inbound topics we care about:
-    // const res = await axios.get(`${process.env.LOCALHOST_URL}/mqtttopic/subscribe`);
-    // const allTopics = res.data;
-
-    // // Construct full topic strings
-    // const fullTopics = allTopics.map(topic => {
-    //   const { basetopic, deviceId, action, direction } = topic;
-
-    //   // If deviceId exists, append it (device-specific topic)
-    //   if (deviceId) {
-    //     return `${basetopic}/${deviceId}/${action}/${direction}`;
-    //   }
-    //   // If global topic (e.g., discover/commands), just return basetopic
-    //   return `${basetopic}/${action}/${direction}`;
-    // });
-
-    // console.log("Full MQTT topics:", fullTopics);
-    
-    // if (fullTopics.length === 0) {
-    //   console.warn("⚠️ No topics returned for subscription.");
-    //   return;
-    // }
-
-    // Subscribe to all dynamic topics
-    mqttClient.subscribe([
-      "app/discover/out",         // global
-      "app/devices/+/+/out"       // device-specific
-    ], { qos: 0 }, (err) => {
-      if (err) {
-        console.error("MQTT subscription error:", err);
-      } else {
-        console.log(`✅ Subscribed to ${fullTopics.length} topic(s):`, fullTopics);
-      }
-    });
-  } catch (err) {
-    console.error("❌ Failed to fetch subscribe topics from API:", err.message);
   }
 
-  // Now that we’re definitely connected, fetch all devices from our DB
-  // and publish one “seed” message per device to STATUS_IN:
-  try {
+  // ✅ Subscribe to fixed dynamic topics once (not inside the loop)
+  mqttClient.subscribe([
+    "app/discover/out",
+    "app/devices/+/+/out"
+  ], { qos: 0 }, (err) => {
+    if (err) {
+      console.error("MQTT subscription error:", err);
+    } else {
+      console.log("✅ Subscribed to topic(s)");
+    }
+  });
 
+  // ✅ Seed any MQTT topics (e.g. status/in) from DB
+  try {
     const getRes = await axios.get(`${process.env.LOCALHOST_URL}/mqtttopic`);
     const allTopics = getRes.data;
 
     for (const topic of allTopics) {
-      if (topic.deviceId && topic.action === "status" && topic.direction === "in") 
-      {
-        const fullTopic = `${topic.basetopic}/${topic.deviceId}/${topic.action}/${topic.direction}`
+      if (topic.deviceId && topic.action === "status" && topic.direction === "in") {
+        const fullTopic = `${topic.basetopic}/${topic.deviceId}/${topic.action}/${topic.direction}`;
 
         if (topic.payload) {
           mqttClient.publish(fullTopic, topic.payload, { qos: topic.qos }, (err) => {
             if (err) {
-              console.error(`❌ Failed to publish to status topics`, err);
+              console.error(`❌ Failed to publish to ${fullTopic}:`, err);
             }
           });
         }
       }
     }
   } catch (err) {
-    console.error(
-      "Failed to fetch devices for heartbeat:",
-      err.response?.data || err.message
-    );
-  }
+    console.error("❌ Failed to fetch topics for seeding:", err.response?.data || err.message);
   }
 });
 
 
+
 // 3) Handle inbound MQTT messages:
 mqttClient.on("message", async (topic, message) => {
+
   // const handlers = {
   //   status: handleStatusUpdate,
   //   state: handleStateUpdate,
@@ -258,7 +229,12 @@ mqttClient.on("message", async (topic, message) => {
   if (action === "commands") {
     try {
       const payload = JSON.parse(message.toString());
-      await axios.post(`${process.env.LOCALHOST_URL}/devicecommands`, payload);
+
+      const deviceCommandPayload = {
+      deviceID: deviceId,               // ✅ add device ID
+      commands: payload.commands        // use the raw command list as-is
+    };
+      await axios.post(`${process.env.LOCALHOST_URL}/devicecommands`, deviceCommandPayload);
     } catch (error) {
       console.error("Failed to send command to API:", error.response?.data || error.message);
       return
@@ -348,7 +324,7 @@ app.use("/api/devicestate", deviceStateRoutes)
 connectDB()
   .then(() => {
     console.log("Database connected successfully.");
-    seedMqttTopics();
+    //seedMqttTopics();
     httpServer.listen(port, () => console.log(`Server running on port ${port}`));
   })
   .catch((err) => {

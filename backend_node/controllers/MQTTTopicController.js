@@ -8,10 +8,10 @@ function parseBasetopic(basetopic) {
     const [root, action, direction] = parts;
     if (
       root === "app" &&
-        ["discover"].includes(action) &&
-        ["in", "out"].includes(direction)
+      ["discover"].includes(action) &&
+      ["in", "out"].includes(direction)
     ) {
-      return { deviceId: null, action, direction };
+      return { basetopic: "app", deviceId: null, action, direction };
     }
   }
 
@@ -24,12 +24,13 @@ function parseBasetopic(basetopic) {
       ["commands", "status", "state", "do_command"].includes(action) &&
       ["in", "out"].includes(direction)
     ) {
-      return { deviceId, action, direction };
+      return { basetopic: "app/devices", deviceId, action, direction };
     }
   }
 
   return null;
 }
+
 
 // Get all MQTT topics
 export const getAllMQTTTopics = async (req, res) => {
@@ -89,15 +90,36 @@ export const createMQTTTopic = async (req, res) => {
 
   try {
     const parsed = parseBasetopic(basetopic);
+
     if (!parsed) {
       return res.status(400).json({ message: "Invalid basetopic format." });
     }
 
-    const { deviceId: parsedDeviceId, action, direction } = parsed;
+    const { basetopic:parsedBasetopic, deviceId: parsedDeviceId, action, direction } = parsed;
     const finalDeviceId = parsedDeviceId ?? explicitDeviceId;
 
+    console.log("🔍 Checking for existing topic with:", {
+      basetopic:parsedBasetopic,
+      deviceId: { $eq: finalDeviceId },  // Ensures exact match for `null`
+      action,
+      direction
+    });
+
+    const exists = await MQTTTopic.findOne({
+      basetopic:parsedBasetopic, 
+      deviceId: finalDeviceId,
+      action,
+      direction
+    });
+
+    if (exists) {
+      return res.status(409).json({
+        message: `Topic already exists for deviceId=${finalDeviceId}, action=${action}, direction=${direction}.`
+      });
+    }
+
     const mqttTopic = new MQTTTopic({
-      basetopic,
+      basetopic:parsedBasetopic,
       payload,
       type,
       deviceId: finalDeviceId,

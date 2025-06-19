@@ -120,18 +120,15 @@ export async function saveDevice(deviceData) {
     const res = await axios.post(`${API_URL}/devices`, deviceData);
     const savedDevice = res.data;
 
-    saveMqttTopic(savedDevice)
+    await saveMqttTopic(savedDevice)
     // Call handleRequest with actual values
 
-    const res2 = await axios.get(`${API_URL}/mqtttopic/${savedDevice._id}/commands/in`)
+    const res2 = await axios.get(`${API_URL}/mqtttopic/device/${savedDevice._id}/commands/in`)
     const topic1 = res2.data
-    console.log(`aici ${topic1}`)
     await handleRequest(`${topic1.basetopic}/${topic1.deviceId}/${topic1.action}/${topic1.direction}`, `${topic1.type}`, `${topic1.payload}`)
 
-    const res3 = await axios.get(`${API_URL}/mqtttopic/${savedDevice._id}/state/in`)
+    const res3 = await axios.get(`${API_URL}/mqtttopic/device/${savedDevice._id}/state/in`)
     const topic2 = res3.data
-        console.log(`aici ${topic2}`)
-
     await handleRequest(`${topic2.basetopic}/${topic2.deviceId}/${topic2.action}/${topic2.direction}`, `${topic2.type}`, `${topic2.payload}`)
 
 
