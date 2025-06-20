@@ -2,6 +2,7 @@ import { View, Text, Image } from 'react-native'
 import React from 'react'
 import { Tabs } from 'expo-router'
 import icons from '@/constants/icons'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
 
 const TabIcon = ({focused, icon, title}:
     {
@@ -21,50 +22,52 @@ const TabIcon = ({focused, icon, title}:
 
 const TabsLayout = () => {
   return (
-    <Tabs
-        screenOptions={{
-            tabBarShowLabel:false,
-            tabBarStyle: {
-                backgroundColor:'black',
-                position:'absolute',
-                borderTopColor:'#0061ff1a',
-                borderTopWidth:1,
-                minHeight:70,
-                elevation: 0,                     // remove Android shadow
-                shadowOpacity: 0,                 // remove iOS shadow
-            }
-        }}>
-        <Tabs.Screen
-            name='index'
-            options={{
-                title:'Home',
-                headerShown:false,
-                tabBarIcon: ({focused}) => (
-                    <TabIcon icon={icons.home} focused={focused} title='Home'></TabIcon>
-                )
+    <GestureHandlerRootView>
+        <Tabs
+            screenOptions={{
+                tabBarShowLabel:false,
+                tabBarStyle: {
+                    backgroundColor:'black',
+                    position:'absolute',
+                    borderTopColor:'#0061ff1a',
+                    borderTopWidth:1,
+                    minHeight:70,
+                    elevation: 0,                     // remove Android shadow
+                    shadowOpacity: 0,                 // remove iOS shadow
+                }
             }}>
-        </Tabs.Screen>
-        <Tabs.Screen
-            name='Scenarios'
-            options={{
-                title:'Scenarios',
-                headerShown:false,
-                tabBarIcon: ({focused}) => (
-                    <TabIcon icon={icons.clock} focused={focused} title='Scenarios'></TabIcon>
-                )
-            }}>
-        </Tabs.Screen>
-        <Tabs.Screen
-            name='Profile'
-            options={{
-                title:'Profile',
-                headerShown:false,
-                tabBarIcon: ({focused}) => (
-                    <TabIcon icon={icons.person} focused={focused} title='Profile'></TabIcon>
-                )
-            }}>
-        </Tabs.Screen>
-    </Tabs>
+            <Tabs.Screen
+                name='index'
+                options={{
+                    title:'Home',
+                    headerShown:false,
+                    tabBarIcon: ({focused}) => (
+                        <TabIcon icon={icons.home} focused={focused} title='Home'></TabIcon>
+                    )
+                }}>
+            </Tabs.Screen>
+            <Tabs.Screen
+                name='Scenarios'
+                options={{
+                    title:'Scenarios',
+                    headerShown:false,
+                    tabBarIcon: ({focused}) => (
+                        <TabIcon icon={icons.clock} focused={focused} title='Scenarios'></TabIcon>
+                    )
+                }}>
+            </Tabs.Screen>
+            <Tabs.Screen
+                name='Profile'
+                options={{
+                    title:'Profile',
+                    headerShown:false,
+                    tabBarIcon: ({focused}) => (
+                        <TabIcon icon={icons.person} focused={focused} title='Profile'></TabIcon>
+                    )
+                }}>
+            </Tabs.Screen>
+        </Tabs>
+    </GestureHandlerRootView>
   )
 }
 

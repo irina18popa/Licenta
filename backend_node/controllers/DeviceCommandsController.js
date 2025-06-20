@@ -53,11 +53,12 @@ export const updateDeviceCommand = async (req, res) => {
 // Delete a device command configuration by deviceID
 export const deleteDeviceCommand = async (req, res) => {
   try {
-    const config = await DeviceCommand.findOne({ deviceID: req.params.deviceID });
+    const config = await DeviceCommand.findOneAndDelete({ deviceID: req.params.deviceID });
     if (!config) return res.status(404).json({ message: "Device command configuration not found" });
-    await config.remove();
+    
     res.json({ message: "Device command configuration deleted successfully" });
   } catch (err) {
+    console.error("Error deleting device commands:", err);
     res.status(500).json({ message: err.message });
   }
 };

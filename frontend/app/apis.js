@@ -131,18 +131,6 @@ export async function saveDevice(deviceData) {
     const topic2 = res3.data
     await handleRequest(`${topic2.basetopic}/${topic2.deviceId}/${topic2.action}/${topic2.direction}`, `${topic2.type}`, `${topic2.payload}`)
 
-
-    // if(savedDevice.protocol === "upnp")
-    // {
-    //   await handleRequest("app/commands/in", "pub", `${savedDevice.protocol}/${savedDevice.metadata}/${savedDevice._id}`);
-    //   await handleRequest("app/devices/state/in", "pub", `${savedDevice.protocol}/${savedDevice.metadata}`)
-    // }
-    // else if(savedDevice.manufacturer === "TUYA")
-    // {
-    //   await handleRequest("app/commands/in", "pub", `${savedDevice.manufacturer}/${savedDevice.metadata}/${savedDevice._id}`);
-    //   await handleRequest("app/devices/state/in", "pub", `${savedDevice.manufacturer}/${savedDevice.metadata}`)
-    // }
-
     return savedDevice;
   } catch (err) {
     console.error('Failed to save device:', err.response?.data || err.message);
@@ -201,6 +189,29 @@ export const fetchTVDeviceCommands = async (deviceId) => {
   }
 };
 
+export const deleteDevice = async (deviceId) => {
+  try {
+    const endpoints = [
+      axios.delete(`${API_URL}/devices/${deviceId}`),                    // Main device
+      axios.delete(`${API_URL}/devicecommands/${deviceId}`),            // Command config
+      axios.delete(`${API_URL}/devicestate/${deviceId}`),             // Status config
+      axios.delete(`${API_URL}/mqtttopic/device/${deviceId}`),               // MQTT topics
+    ];
+
+    const results = await Promise.allSettled(endpoints);
+
+    results.forEach((res, idx) => {
+      if (res.status === "rejected") {
+        console.warn(`Delete request ${idx + 1} failed:`, res.reason?.message);
+      }
+    });
+
+    console.log("All delete attempts processed.");
+  } catch (error) {
+    console.error("Unexpected error during deleteDevice:", error.message);
+  }
+};
+
 
 
 export default {
@@ -209,5 +220,6 @@ export default {
   handleRequest,
   fetchDiscoveredDevices,
   fetchTVDevices,
-  fetchTVDeviceCommands
+  fetchTVDeviceCommands, 
+  deleteDevice
 };

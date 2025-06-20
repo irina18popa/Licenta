@@ -15,8 +15,11 @@ import { io, Socket } from "socket.io-client";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { getDevices } from "@/app/apis"; // your existing API helper
+import { deleteDevice, getDevices } from "@/app/apis"; // your existing API helper
 import images from "../../../constants/images";
+import SwipeableRow from "@/components/SwipeableRow";
+import { Swipeable } from "react-native-gesture-handler";
+
 
 interface RawDevice {
   _id: string;
@@ -55,6 +58,7 @@ const HomeScreen = () => {
   const [devices, setDevices] = useState<RawDevice[]>([]);
   const [loadingDevices, setLoadingDevices] = useState(true);
   const [deviceError, setDeviceError] = useState<string | null>(null);
+  const [openRow, setOpenRow] = useState<Swipeable | null>(null);
 
   const router = useRouter();
 
@@ -128,6 +132,13 @@ const HomeScreen = () => {
 
   const renderDevice = ({ item }: { item: RawDevice }) => {
     
+    const handleRowOpen = (ref: Swipeable) => {
+      if (openRow && openRow !== ref) {
+        openRow.close();
+      }
+      setOpenRow(ref);
+    };
+
     const isOnline = item.status === "online"
 
     const iconName: React.ComponentProps<typeof Ionicons>["name"] =
@@ -152,37 +163,57 @@ const HomeScreen = () => {
     const isTuya = item.manufacturer === "TUYA"
 
     return (
-      <TouchableOpacity
-        className="flex-row justify-between items-center bg-black bg-opacity-50 mx-5 my-2 rounded-xl p-4"
-        onPress={() => router.navigate({
-          pathname:screen,
-          params:{id:item._id},
-        })}
-        disabled={!isOnline}
-      >
-        <View className="flex-row items-center">
-          <Ionicons name={iconName} size={24} color="white" />
-          <View className="ml-3">
-            <Text className="text-white text-lg font-bold">{item.name}</Text>
-            <View className="flex-row items-center">
-              <View
-                className={`w-2 h-2 rounded-full mr-1 ${
-                  isOnline ? "bg-green-400" : "bg-red-600"
-                }`}
-              />
-              <Text className="text-white">{isOnline ? "Online" : "Offline"}</Text>
+      <SwipeableRow
+        onDelete={() =>
+          Alert.alert("Delete Device", "Are you sure?",
+            [
+              {
+                text:"Cancel", style: "cancel"
+              },
+              {
+                text:"Delete", style: "destructive" , 
+                onPress: async () =>
+                {
+                  await deleteDevice(item._id)
+                  setDevices((prev) => prev.filter((d) => d._id !== item._id));
+                }
+              },
+            ]
+          )
+        }
+        onSwipeableOpen={handleRowOpen}>
+        <TouchableOpacity
+          className="flex-row justify-between items-center bg-black bg-opacity-50 mx-5 my-2 rounded-xl p-4"
+          onPress={() => router.navigate({
+            pathname:screen,
+            params:{id:item._id},
+          })}
+          disabled={!isOnline}
+        >
+          <View className="flex-row items-center">
+            <Ionicons name={iconName} size={24} color="white" />
+            <View className="ml-3">
+              <Text className="text-white text-lg font-bold">{item.name}</Text>
+              <View className="flex-row items-center">
+                <View
+                  className={`w-2 h-2 rounded-full mr-1 ${
+                    isOnline ? "bg-green-400" : "bg-red-600"
+                  }`}
+                />
+                <Text className="text-white">{isOnline ? "Online" : "Offline"}</Text>
+              </View>
             </View>
           </View>
-        </View>
-        {isTuya && 
-        (<Switch
-          value={isOnline}
-          onValueChange={() => toggleDevice(item._id)}
-          trackColor={{ true: "#34D399", false: "#9CA3AF" }}
-          thumbColor={isOnline ? "#10B981" : "#F3F4F8"}
-          disabled={!isOnline}
-        />)}
-      </TouchableOpacity>
+          {isTuya && 
+          (<Switch
+            value={isOnline}
+            onValueChange={() => toggleDevice(item._id)}
+            trackColor={{ true: "#34D399", false: "#9CA3AF" }}
+            thumbColor={isOnline ? "#10B981" : "#F3F4F8"}
+            disabled={!isOnline}
+          />)}
+        </TouchableOpacity>
+      </SwipeableRow>
     );
   };
 
