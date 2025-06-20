@@ -74,7 +74,6 @@ async def get_tuya_device_commands(device_tuya_id: str) -> dict:
             "parameters": [param_info]
         })
 
-    print({"commands": commands})
         ####### aici am eliminat deviceId
     return {"commands": commands}
 
