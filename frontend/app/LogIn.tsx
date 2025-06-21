@@ -2,12 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import images from '@/constants/images';
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { red } from 'react-native-reanimated/lib/typescript/Colors';
-
+import { loginUser } from './apis';
+import * as SecureStore from 'expo-secure-store'
 
 
 const LoginScreen = () => {
@@ -37,7 +37,10 @@ const LoginScreen = () => {
     // }
 
 
-    const [isBiometricAuthSupported, setIsBiometricAuthSupported] =useState(false)
+    const [isBiometricAuthSupported, setIsBiometricAuthSupported] = useState(false)
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [loading, setLoading] = useState(false);
 
     const fallBackToDefaultAuth=()=>
     {
@@ -141,6 +144,39 @@ const LoginScreen = () => {
         })();
       }, []);  // important: invoke once on mount
 
+
+    const handleLogin = async () => {
+        if (!email || !password) {
+            Alert.alert('Error', 'Please enter both email and password');
+            return;
+        }
+
+        setLoading(true);
+
+        try {
+            const response = await loginUser(email, password);
+            // TODO: navigate or save user context/token if needed
+            //console.log("response", response); // Add this line to inspect the response structure
+        
+            if (response?.token) {
+                // Store token and user info
+                await SecureStore.setItemAsync('userToken', response.token);
+                await SecureStore.setItemAsync('user', JSON.stringify(response.user));
+
+                Alert.alert('Welcome!', `Logged in as ${response.user.first_name} ${response.user.last_name}`);
+                router.replace('/'); // Navigate to the home screen
+            } else {
+                Alert.alert('Login Failed', 'Token not found in response');
+            }
+        } catch (error: any) {
+            const errorMsg = error.response?.data?.message || error.message || 'Login failed';
+            Alert.alert('Login Failed', errorMsg);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+
   return (
     <SafeAreaView className="flex-1 bg-black" edges={['top']}>
         <Image source={images.background} className="absolute w-full h-full" blurRadius={10} />
@@ -170,6 +206,8 @@ const LoginScreen = () => {
             <TextInput
             placeholder="Email"
             placeholderTextColor="#4B5563"
+            value={email}
+            onChangeText={setEmail}
             className="ml-2 flex-1 text-black"
             />
         </View>
@@ -180,14 +218,18 @@ const LoginScreen = () => {
             placeholder="Password"
             placeholderTextColor="#4B5563"
             secureTextEntry
+            value={password}
+            onChangeText={setPassword}
             className="ml-2 flex-1 text-black"
             />
         </View>
 
         <Text className="text-right text-sm text-blue-300 mr-14 my-4">Forgot password</Text>
 
-        <TouchableOpacity className="bg-blue-700 py-3 rounded-full mb-4 mx-8">
-            <Text className="text-center font-bold">Login</Text>
+        <TouchableOpacity className="bg-blue-700 py-3 rounded-full mb-4 mx-8" 
+                            onPress={handleLogin}
+                            disabled={loading}>
+            <Text className="text-center font-bold">{loading ? 'Logging in...' : 'Login'}</Text>
         </TouchableOpacity>
 
         <Text className="text-center text-white mb-2">Or login with</Text>

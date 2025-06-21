@@ -12,7 +12,6 @@ import deviceCommandRoutes from "./routes/DeviceCommandRoutes.js";
 import discoveredDevicesRoutes from "./routes/TemporarlyDevicesRoutes.js";
 import mqttTopicRoutes from "./routes/MQTTTopicRoutes.js";
 import deviceStateRoutes from "./routes/DeviceStateRoutes.js"
-import { seedMqttTopics } from "./seed/MQTTSeed.js";
 import { saveDiscoveredDevice } from "./discoveredDevices.js";
 
 dotenv.config();
@@ -124,7 +123,7 @@ mqttClient.on("connect", async () => {
 
     try {
       const res = await axios.get(`${process.env.LOCALHOST_URL}/mqtttopic/device/null/discover/${direction}`);
-      console.log(`✅ Topic exists: ${JSON.stringify(res.data, null, 2)}`);
+      //console.log(`✅ Topic exists: ${JSON.stringify(res.data, null, 2)}`);
     } catch (err) {
       if (err.response?.status === 404) {
         console.log(`⛔ Topic not found: ${basetopic}, creating...`);

@@ -8,27 +8,80 @@ import {
   KeyboardTypeOptions,
   Alert,
   Platform,
-  ToastAndroid
+  ToastAndroid,
+  ActivityIndicator
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import images from '@/constants/images';
 import { Link, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { createUser } from './apis';
+import validator from 'validator'
+
 
 const SignUpScreen: React.FC = () => {
-  const [name, setName]                   = useState('');
+
+  const [first_name, setFirstName]         = useState('');
+  const [last_name, setLastName]           = useState('');
   const [email, setEmail]                 = useState('');
   const [password, setPassword]           = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
   const router = useRouter();
 
-  const handleSignUp = () => {
-    // your signup logic...
-    const msg = 'Signed up successfully!';
-    Platform.OS === 'android'
-      ? ToastAndroid.show(msg, ToastAndroid.SHORT)
-      : Alert.alert('Success', msg);
-    router.push('/LogIn');
+  const isEmailValid = validator.isEmail(email);
+
+  const isPasswordValid = () => {
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_])(?!.*\s).{8,}$/;
+    return passwordRegex.test(password);
+  };
+
+  const isFormValid = () => {
+    return (
+      first_name.trim() &&
+      last_name.trim() &&
+      email.trim() &&
+      password &&
+      confirmPassword &&
+      password === confirmPassword &&
+      isEmailValid &&
+      isPasswordValid()
+    );
+  };
+
+  const handleSignUp = async () => {
+    if (!isFormValid() || loading) return;
+
+    setLoading(true)
+
+    try {
+      await createUser({
+        first_name,
+        last_name,
+        email,
+        password,
+        role: 'user', // or whatever default role you'd like
+      });
+
+      const msg = 'Signed up successfully!';
+      Platform.OS === 'android'
+        ? ToastAndroid.show(msg, ToastAndroid.SHORT)
+        : Alert.alert('Success', msg);
+
+      router.push('/LogIn');
+
+    } catch (error) {
+      const err = error as any;
+      const errorMsg = err?.response?.data?.message || err?.message || 'Failed to sign up';
+      
+      const myerrormsg = 'Sign Up Failed. Try a different email or password!'
+      Platform.OS === 'android'
+        ? ToastAndroid.show(myerrormsg, ToastAndroid.LONG)
+        : Alert.alert(myerrormsg);
+    } finally{
+      setLoading(false)
+    }
   };
 
   return (
@@ -50,14 +103,26 @@ const SignUpScreen: React.FC = () => {
       </Text>
 
       {/* Form Fields */}
+
       <View className="flex flex-col space-y-4 mx-8 mb-8">
         <View className="flex-row items-center bg-gray-200 rounded-full px-4 py-3 mb-4">
           <MaterialCommunityIcons name="account-outline" size={20} />
           <TextInput
-            placeholder="Name"
+            placeholder="First Name (ex: John)"
             placeholderTextColor="#4B5563"
-            value={name}
-            onChangeText={setName}
+            value={first_name}
+            onChangeText={setFirstName}
+            className="ml-2 flex-1 text-black"
+          />
+        </View>
+
+        <View className="flex-row items-center bg-gray-200 rounded-full px-4 py-3 mb-4">
+          <MaterialCommunityIcons name="account-outline" size={20} />
+          <TextInput
+            placeholder="Last Name (ex: Doe)"
+            placeholderTextColor="#4B5563"
+            value={last_name}
+            onChangeText={setLastName}
             className="ml-2 flex-1 text-black"
           />
         </View>
@@ -73,6 +138,9 @@ const SignUpScreen: React.FC = () => {
             className="ml-2 flex-1 text-black"
           />
         </View>
+        {!isEmailValid && email.length > 0 && (
+          <Text className="text-red-500 ml-2 mb-4">Invalid email format</Text>
+        )}
 
         <View className="flex-row items-center bg-gray-200 rounded-full px-4 py-3 mb-4">
           <MaterialCommunityIcons name="lock-outline" size={20} />
@@ -85,7 +153,12 @@ const SignUpScreen: React.FC = () => {
             className="ml-2 flex-1 text-black"
           />
         </View>
-
+        {!isPasswordValid() && password.length > 0 && (
+          <Text className="text-red-500 ml-2 mb-4">
+            Password must be 8+ chars with upper, lower, digit, symbol, no spaces.
+          </Text>
+        )}
+        
         <View className="flex-row items-center bg-gray-200 rounded-full px-4 py-3">
           <MaterialCommunityIcons name="lock-check-outline" size={20} />
           <TextInput
@@ -97,14 +170,22 @@ const SignUpScreen: React.FC = () => {
             className="ml-2 flex-1 text-black"
           />
         </View>
+        {confirmPassword !== password && confirmPassword.length > 0 && (
+          <Text className="text-red-500 ml-2 mb-2 mt-2">Passwords do not match</Text>
+        )}
       </View>
 
       {/* Sign Up Button */}
       <TouchableOpacity
         onPress={handleSignUp}
-        className="bg-blue-700 py-3 rounded-full mb-4 mx-8 mt-6"
+        className={`py-3 rounded-full mb-4 mx-8 mt-4 ${isFormValid() ? 'bg-blue-700' : 'bg-gray-500'}`}
+        disabled={!isFormValid}
       >
-        <Text className="text-center text-white font-bold">Sign Up</Text>
+        {loading ? (
+          <ActivityIndicator size="small" color="#ffffff" />
+        ) : (
+          <Text className="text-center text-white font-bold">Sign Up</Text>
+        )}
       </TouchableOpacity>
 
       {/* Or login link */}

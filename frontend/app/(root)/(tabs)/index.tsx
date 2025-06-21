@@ -19,6 +19,8 @@ import { deleteDevice, getDevices } from "@/app/apis"; // your existing API help
 import images from "../../../constants/images";
 import SwipeableRow from "@/components/SwipeableRow";
 import { Swipeable } from "react-native-gesture-handler";
+import * as SecureStore from 'expo-secure-store';
+
 
 
 interface RawDevice {
@@ -59,8 +61,25 @@ const HomeScreen = () => {
   const [loadingDevices, setLoadingDevices] = useState(true);
   const [deviceError, setDeviceError] = useState<string | null>(null);
   const [openRow, setOpenRow] = useState<Swipeable | null>(null);
+  const [userName, setUserName] = useState(''); // State to store user's name
+  const [profileImage, setProfileImage] = useState('');
 
   const router = useRouter();
+
+  // Fetch user info from SecureStore
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      const user = await SecureStore.getItemAsync('user');
+      if (user) {
+        const parsedUser = JSON.parse(user);
+        setUserName(parsedUser.first_name + ' ' + parsedUser.last_name);  // Assuming first_name and last_name are in the response
+        setProfileImage(parsedUser.profile_image || images.avatar); // Fallback to default image if no profile_image
+      }
+    };
+
+    fetchUserInfo();
+  }, []);
+  
 
   const TwoButtonAlert = () => {
     Alert.alert("Add device", "Choose a device type:", [
@@ -232,10 +251,10 @@ const HomeScreen = () => {
           className="flex-row items-center"
           onPress={() => router.navigate("/Profile")}
         >
-          <Image source={images.avatar} className="w-10 h-10 rounded-full mr-3" />
+          <Image source={{uri : profileImage}} className="w-10 h-10 rounded-full mr-3" />
           <View>
             <Text className="text-sm text-white">Good Morning</Text>
-            <Text className="text-xl font-bold text-white">Adrian Hajdin</Text>
+            <Text className="text-xl font-bold text-white">{userName}</Text>
           </View>
         </TouchableOpacity>
         <View className="flex-col items-center p-2 gap-y-5">

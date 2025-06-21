@@ -213,6 +213,48 @@ export const deleteDevice = async (deviceId) => {
 };
 
 
+export const createUser = async (userData) => {
+  try {
+    const response = await axios.post(`${API_URL}/users`, userData);
+    console.log('User created:', response.data);
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      console.error('Server error:', error.response.data.message);
+      throw error
+    } else {
+      console.error('Request error:', error.message);
+      throw error
+    }
+  }
+};
+
+
+export const loginUser = async (email, password) => {
+  try {
+    const response = await axios.post(`${API_URL}/users/login`, { email, password });
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      console.error('Server error:', error.response.data.message);
+    } else {
+      console.error('Request error:', error.message);
+    }
+  }
+};
+
+export const loadNewProfilePic = async (deviceId, profile_pic) => {
+  try {
+    const response = await axios.put(`${API_URL}/users/${deviceId}`, { profile_image:profile_pic });
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      console.error('Server error:', error.response.data.message);
+    } else {
+      console.error('Request error:', error.message);
+    }
+  }
+}
 
 export default {
   getDevices,
@@ -221,5 +263,7 @@ export default {
   fetchDiscoveredDevices,
   fetchTVDevices,
   fetchTVDeviceCommands, 
-  deleteDevice
+  deleteDevice,
+  createUser,
+  loadNewProfilePic
 };

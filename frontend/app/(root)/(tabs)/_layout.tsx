@@ -1,8 +1,10 @@
-import { View, Text, Image } from 'react-native'
-import React from 'react'
-import { Tabs } from 'expo-router'
+import { View, Text, Image, ActivityIndicator } from 'react-native'
+import React, { useEffect, useState } from 'react'
+import { Tabs, useRouter } from 'expo-router'
 import icons from '@/constants/icons'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import * as SecureStore from 'expo-secure-store';
+
 
 const TabIcon = ({focused, icon, title}:
     {
@@ -21,6 +23,31 @@ const TabIcon = ({focused, icon, title}:
 )
 
 const TabsLayout = () => {
+    const [loading, setLoading] = useState(true);
+    const router = useRouter()
+
+    useEffect(() => {
+    const validateToken = async () => {
+      const token = await SecureStore.getItemAsync('userToken');
+
+      if (!token) {
+        router.replace('/LogIn'); // Redirect to login if no token
+      }
+
+      setLoading(false);
+    };
+
+    validateToken();
+  }, []);
+
+  if (loading) {
+    return (
+      <View className="flex-1 justify-center items-center bg-black">
+        <ActivityIndicator size="large" color="#ffffff" />
+      </View>
+    );
+  }
+  
   return (
     <GestureHandlerRootView>
         <Tabs

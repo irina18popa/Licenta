@@ -2,7 +2,13 @@ import User from "../models/Users.js";
 import bcrypt from 'bcryptjs';
 import PasswordValidator from 'password-validator';
 import validator from 'validator'; // Import the validator library
+import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv'
+import { createCanvas } from 'canvas';
 
+
+
+dotenv.config()
 
 // Get all users
 export const getAllUsers = async (req, res) => {
@@ -26,6 +32,23 @@ export const getUserById = async (req, res) => {
 };
 
 
+// Function to create a base64 image with initials
+const generateProfileImage = (first_name, last_name) => {
+  const initials = first_name.charAt(0) + last_name.charAt(0);
+  const canvas = createCanvas(100, 100);
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#3498db'; // Background color
+  ctx.fillRect(0, 0, 100, 100); // Create square
+  ctx.font = '30px Arial';
+  ctx.fillStyle = 'white';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(initials.toUpperCase(), 50, 50); // Write initials in center
+
+  return canvas.toDataURL(); // Return base64 encoded image
+};
+
+
 // Create a new user
 export const createUser = async (req, res) => {
   // Create a password schema
@@ -39,7 +62,7 @@ export const createUser = async (req, res) => {
     .has().digits() // Must have digits
     .has().symbols() // Must have special characters
     .has().not().spaces(); // No spaces allowed
-    const { name, email, password, role, preferences } = req.body;
+    const { first_name, last_name, email, password, role, profile_image } = req.body;
 
   // Validate email format
   if (!validator.isEmail(email)) {
@@ -52,6 +75,10 @@ export const createUser = async (req, res) => {
       message: 'Password must be at least 8 characters long, contain an uppercase letter, a lowercase letter, a digit, a special character, and have no spaces.',
     });
   }
+
+  
+  // Generate profile image if none provided
+  const profileImage = profile_image || generateProfileImage(first_name, last_name);
 
   try {
     // Check if user already exists
@@ -66,11 +93,12 @@ export const createUser = async (req, res) => {
 
     // Create a new user object
     const user = new User({
-      name,
+      first_name,
+      last_name,
       email,
       passwordHash: hashedPassword,
       role,
-      preferences,
+      profile_image: profileImage, // Set profile image
     });
 
     // Save user to the database
@@ -82,6 +110,29 @@ export const createUser = async (req, res) => {
   }
 };
 
+export const loginUser = async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) return res.status(400).json({ message: 'Invalid email or password' });
+
+    const isPasswordCorrect = await bcrypt.compare(password, user.passwordHash);
+    if (!isPasswordCorrect) return res.status(400).json({ message: 'Invalid email or password' });
+
+    //token definition
+    const token = jwt.sign(
+      { id: user._id, email: user.email, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.status(200).json({ user, token });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 
 // Update user
 export const updateUser = async (req, res) => {
@@ -89,7 +140,8 @@ export const updateUser = async (req, res) => {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    if (req.body.name) user.name = req.body.name;
+    if (req.body.first_name) user.first_name = req.body.first_name;
+    if (req.body.last_name) user.last_name = req.body.last_name;
     if (req.body.email) user.email = req.body.email;
     if (req.body.passwordHash) user.passwordHash = req.body.passwordHash;
     if (req.body.profile_image) user.profile_image = req.body.profile_image;
@@ -107,9 +159,8 @@ export const updateUser = async (req, res) => {
 // Delete user
 export const deleteUser = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
+    const user = await User.findByIdAndDelete(req.params.id);
     if (!user) return res.status(404).json({ message: "User not found" });
-    await user.remove();
     res.json({ message: "User deleted successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message });

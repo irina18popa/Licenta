@@ -1,15 +1,17 @@
-import React from 'react';
-import { View, Text, Image, TouchableOpacity, FlatList } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, Image, TouchableOpacity, FlatList, Alert } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import images from '../../../constants/images'
+import images from '../../../constants/images';  // Default fallback image
 import { router } from 'expo-router';
-
+import * as SecureStore from 'expo-secure-store';
+import * as ImagePicker from 'expo-image-picker';
+import { loadNewProfilePic } from '@/app/apis';
 
 const menuItems = [
   { key: 'guestQR', label: 'GuestQR', icon: <Ionicons name="qr-code-outline" size={20} /> },
   { key: 'profile', label: 'Profile', icon: <Feather name="user" size={20} /> },
-  { key: 'family', label: 'Familiy', icon: <Ionicons name="people-outline" size={20} /> },
+  { key: 'family', label: 'Family', icon: <Ionicons name="people-outline" size={20} /> },
   { key: 'notification', label: 'Notification', icon: <Ionicons name="notifications-outline" size={20} /> },
   { key: 'appearance', label: 'Appearance Settings', icon: <Feather name="moon" size={20} /> },
   { key: 'help', label: 'Help Center', icon: <Feather name="info" size={20} /> },
@@ -17,6 +19,86 @@ const menuItems = [
 ];
 
 const Profile = () => {
+  const [userName, setUserName] = useState(''); // State to store user's name
+  const [profileImage, setProfileImage] = useState('');
+
+  // Fetch user info from SecureStore
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      const user = await SecureStore.getItemAsync('user');
+      if (user) {
+        const parsedUser = JSON.parse(user);
+        setUserName(parsedUser.first_name + ' ' + parsedUser.last_name);  // Assuming first_name and last_name are in the response
+        setProfileImage(parsedUser.profile_image || images.avatar); // Fallback to default image if no profile_image
+      }
+    };
+
+    fetchUserInfo();
+  }, []);
+
+  // Handle logout
+  const handleLogout = async () => {
+    await SecureStore.deleteItemAsync('userToken');
+    await SecureStore.deleteItemAsync('user');
+    router.replace('/LogIn');
+  };
+
+  // Handle image picker to upload new profile image
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      const selectedImageUri = result.assets[0].uri;
+      setProfileImage(selectedImageUri); // Update the local state with the new image URI
+
+      // Now upload the selected image to your server
+      uploadImageToServer(selectedImageUri);
+    } else {
+      Alert.alert('No image selected');
+    }
+  };
+
+  // Update user with new profile image
+  const uploadImageToServer = async (imageUri: string) => {
+    const user = JSON.parse(await SecureStore.getItemAsync('user'));
+    const userToken = await SecureStore.getItemAsync('userToken');
+
+    if (!user || !userToken) {
+      Alert.alert('Error', 'User not authenticated');
+      return;
+    }
+
+    try {
+      // Make a PUT request to update the user profile with the new image
+      const response = await loadNewProfilePic(user._id, imageUri);
+
+      if (response) {
+        // Save the updated user data in SecureStore
+        await SecureStore.setItemAsync('user', JSON.stringify(response));
+        Alert.alert('Profile updated successfully');
+      } else {
+        Alert.alert('Error', 'Failed to update profile');
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      Alert.alert('Error', 'Failed to upload profile image');
+    }
+  };
+
+  // Ensure that profileImage is a valid URI, otherwise, use a fallback image
+  const getValidImageUri = (uri: string) => {
+    // If uri is null, undefined, or an invalid value, fallback to a default image
+    if (!uri || uri === '') {
+      return images.avatar; // Return the fallback avatar if the URI is invalid or empty
+    }
+    return uri; // Return the valid URI
+  };
+
   return (
     <SafeAreaView className="flex-1">
       <Image source={images.background} className="absolute w-full h-full" blurRadius={10} />
@@ -30,22 +112,25 @@ const Profile = () => {
       <View className="items-center mt-6">
         <View className="relative">
           <Image
-            source={images.avatar}
+            source={{ uri: getValidImageUri(profileImage) }} // Validate the URI before passing it to the Image component
             className="w-28 h-28 rounded-full"
           />
-          <TouchableOpacity className="absolute bottom-0 right-0 bg-blue-500 p-2 rounded-full" onPress={() => router.navigate('/LogIn')}>
+          <TouchableOpacity className="absolute bottom-0 right-0 bg-blue-500 p-2 rounded-full" onPress={pickImage}>
             <Feather name="edit-2" size={16} color="white" />
           </TouchableOpacity>
         </View>
-        <Text className="mt-4 text-xl font-semibold text-white">Adrian Hajdin</Text>
+        <Text className="mt-4 text-xl font-semibold text-white">{userName || 'Loading...'}</Text>
       </View>
 
       <FlatList
         data={menuItems}
-        keyExtractor={item => item.key}
+        keyExtractor={(item) => item.key}
         className="mt-8 px-6"
         renderItem={({ item }) => (
-          <TouchableOpacity className="flex-row items-center justify-between py-4 border-b border-gray-200">
+          <TouchableOpacity
+            className="flex-row items-center justify-between py-4 border-b border-gray-200"
+            onPress={item.key === 'logout' ? handleLogout : () => router.push(`/${item.key}`)}
+          >
             <View className="flex-row items-center space-x-4">
               <Text className={`${item.color ?? 'text-white'}`}>{item.icon}</Text>
               <Text className={`${item.color ?? 'text-white'} text-base`}>{item.label}</Text>
@@ -56,6 +141,6 @@ const Profile = () => {
       />
     </SafeAreaView>
   );
-}
+};
 
-export default Profile
+export default Profile;
