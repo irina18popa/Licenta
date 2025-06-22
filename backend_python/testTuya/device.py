@@ -292,22 +292,40 @@ payload_combo = {
     #     "code": "switch_led",      
     #     "value": True 
     # },
-    # { 
-    #     "code": "work_mode", 
-    #     "value": "scene" 
+    { 
+        "code": "work_mode", 
+        "value": "music" 
+    },
+    # {
+    #     "code": "colour_data_v2", 
+    #     "value": 
+    #     {
+    #         "h":256,
+    #         "s":380,
+    #         "v":710
+    #     }
     # },
-    {
-        "code": "colour_data_v2", 
-        "value": 
-        {
-            "h":256,
-            "s":380,
-            "v":710
-        }
-    }
+    # {
+    #     "code": "scene_data_v2",
+    #     "value": {
+    #         "scene_num": 1,
+    #         "scene_units": [
+    #             {
+    #                 "bright": 100,
+    #                 "h": 0,
+    #                 "s": 0,
+    #                 "temperature": 0,
+    #                 "unit_change_mode": "static",
+    #                 "unit_gradient_duration": 13,
+    #                 "unit_switch_duration": 14,
+    #                 "v": 0
+    #             }
+    #         ]
+    #     }
+    # }
     # { 
     #     "code": "bright_value_v2", 
-    #     "value": 10 
+    #     "value": 100 
     # },
     # { 
     #     "code": "countdown_1",     
@@ -321,12 +339,25 @@ payload_combo = {
 }
 
 
+# def main():
+#     device_id = "bfbdeb81177e0fca75y6ws"
+
+#     # send the command
+#     response = openapi.post(
+#         f"/v1.0/iot-03/devices/{device_id}/commands",
+#         payload_combo
+#     )
+#     print("Command response:")
+#     print(json.dumps(response, indent=4))
+
+#     # fetch status
+#     status = openapi.get(f"/v1.0/devices/{device_id}/status")
+#     print("\nDevice status:")
+#     print(json.dumps(status, indent=4))
 
 
-# #Make a POST request to the API endpoint with the payload
-response = openapi.post("/v1.0/iot-03/devices/bfbdeb81177e0fca75y6ws/commands", payload_combo)
-response = openapi.get("/v1.0/devices/bfbdeb81177e0fca75y6ws/status")
-
+# if __name__ == "__main__":
+#     main()
 
 # # # Pretty-print the JSON respons
 #print(json.dumps(response, indent=4))

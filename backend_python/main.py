@@ -7,6 +7,9 @@ from ble_scan import scan_ble
 from upnp_commands import get_upnp_actions
 from testTuya.device import get_tuya_device, get_tuya_device_commands, get_tuya_device_status, get_device_state, do_command
 
+
+# TREBUIE SA TRIMIT TOPIC CU CE DEVICE URI AM STERS
+
 # ───────────────────────────────────────────────────────────────────────
 # MQTT broker + topics
 MQTT_BROKER  = "127.0.0.1"
