@@ -1,14 +1,43 @@
 import axios from 'axios';
+import * as SecureStore from 'expo-secure-store';
 
 const API_URL = 'http://192.168.1.135:3000/api';
 
-export async function getDevices() {
+// export async function getDevices() {
+//   try {
+//     const res = await axios.get(`${API_URL}/devices`);
+//     return res.data;
+//   } catch (err) {
+//     console.error('Failed to fetch devices:', err.response?.data || err.message);
+//     throw new Error('Failed to fetch devices');
+//   }
+// }
+
+// Helper to get the logged-in user from SecureStore
+export async function getLoggedInUser() {
+  const user = await SecureStore.getItemAsync('user');
+  return user ? JSON.parse(user) : null;
+}
+
+// Fetch all devices for the current user
+export async function getUserDevices() {
   try {
-    const res = await axios.get(`${API_URL}/devices`);
-    return res.data;
+    // 1. Get the current user (from SecureStore or your backend)
+    const currentUser = await getLoggedInUser();
+    if (!currentUser?._id || !Array.isArray(currentUser.devices) || currentUser.devices.length === 0) {
+      return []; // No devices
+    }
+
+    // 2. Fetch each device by ID (parallel requests)
+    const devicePromises = currentUser.devices.map(deviceId =>
+      axios.get(`${API_URL}/devices/${deviceId}`).then(res => res.data)
+    );
+
+    const devices = await Promise.all(devicePromises); // Array of RawDevice
+    return devices;
   } catch (err) {
-    console.error('Failed to fetch devices:', err.response?.data || err.message);
-    throw new Error('Failed to fetch devices');
+    console.error('Failed to fetch user devices:', err.response?.data || err.message);
+    throw new Error('Failed to fetch user devices');
   }
 }
 
@@ -21,6 +50,17 @@ export async function getDeviceById(id) {
     throw new Error('Failed to fetch device');
   }
 }
+
+export async function getDeviceStateById(id) {
+  try {
+    const res = await axios.get(`${API_URL}/devicestate/${id}`);
+    return res.data;
+  } catch (err) {
+    console.error(`Failed to fetch device ${id}:`, err.response?.data || err.message);
+    throw new Error('Failed to fetch device');
+  }
+}
+
 
 export async function updateDeviceById(id, updateData) {
   try {
@@ -131,6 +171,14 @@ export async function saveDevice(deviceData) {
     const topic2 = res3.data
     await handleRequest(`${topic2.basetopic}/${topic2.deviceId}/${topic2.action}/${topic2.direction}`, `${topic2.type}`, `${topic2.payload}`)
 
+    const user = await SecureStore.getItemAsync('user');
+    if (user) {
+      const parsedUser = JSON.parse(user);
+      const res = await axios.put(`${API_URL}/users/${parsedUser._id}`, {'deviceId': savedDevice._id})
+      // Update SecureStore with the new user data from the response:
+      await SecureStore.setItemAsync('user', JSON.stringify(res.data));
+    }
+
     return savedDevice;
   } catch (err) {
     console.error('Failed to save device:', err.response?.data || err.message);
@@ -167,27 +215,40 @@ export const fetchDiscoveredDevices = async () => {
 };
 
 
-export const fetchTVDevices = async () => {
-  try {
-    const response = await axios.get(`${API_URL}/devices`);
-    return response.data.filter(
-      (device) => device.type === 'tv' && device.protocol === 'upnp'
-    );
-  } catch (error) {
-    console.error('Error fetching devices:', error);
-    return [];
-  }
-};
+// export const fetchTVDevices = async () => {
+//   try {
+//     const response = await axios.get(`${API_URL}/devices`);
+//     return response.data.filter(
+//       (device) => device.type === 'tv' && device.protocol === 'upnp'
+//     );
+//   } catch (error) {
+//     console.error('Error fetching devices:', error);
+//     return [];
+//   }
+// };
 
-export const fetchTVDeviceCommands = async (deviceId) => {
+// export const fetchTVDeviceCommands = async (deviceId) => {
+//   try {
+//     const response = await axios.get(`${API_URL}/devicecommands?deviceId=${deviceId}`);
+//     return response.data;
+//   } catch (error) {
+//     console.error('Error fetching device commands:', error);
+//     return [];
+//   }
+// };
+
+export async function removeDeviceFromUser(userId, deviceId) {
   try {
-    const response = await axios.get(`${API_URL}/devicecommands?deviceId=${deviceId}`);
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching device commands:', error);
-    return [];
+    const res = await axios.put(`${API_URL}/users/${userId}/removedevice`, { deviceId });
+    // Optionally update SecureStore with new user data:
+    await SecureStore.setItemAsync('user', JSON.stringify(res.data));
+    return res.data;
+  } catch (err) {
+    console.error('Failed to remove device:', err.response?.data || err.message);
+    throw new Error('Failed to remove device from user');
   }
-};
+}
+
 
 export const deleteDevice = async (deviceId) => {
   try {
@@ -205,6 +266,12 @@ export const deleteDevice = async (deviceId) => {
         console.warn(`Delete request ${idx + 1} failed:`, res.reason?.message);
       }
     });
+
+    const currentUser = await getLoggedInUser();
+    if (!currentUser?._id || !Array.isArray(currentUser.devices) || currentUser.devices.length === 0) {
+      return []; // No devices
+    }
+    await removeDeviceFromUser(currentUser._id, deviceId);
 
     console.log("All delete attempts processed.");
   } catch (error) {
@@ -243,6 +310,7 @@ export const loginUser = async (email, password) => {
   }
 };
 
+
 export const loadNewProfilePic = async (deviceId, profile_pic) => {
   try {
     const response = await axios.put(`${API_URL}/users/${deviceId}`, { profile_image:profile_pic });
@@ -257,13 +325,16 @@ export const loadNewProfilePic = async (deviceId, profile_pic) => {
 }
 
 export default {
-  getDevices,
   saveDevice,
   handleRequest,
   fetchDiscoveredDevices,
-  fetchTVDevices,
-  fetchTVDeviceCommands, 
+  getDeviceById,
+  getDeviceStateById,
+  //fetchTVDevices,
+  //fetchTVDeviceCommands, 
   deleteDevice,
   createUser,
-  loadNewProfilePic
+  loadNewProfilePic, 
+  getLoggedInUser,
+  getUserDevices
 };

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "",
+    "name": "HomeIQ",
     "slug": "frontend",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -18,7 +18,14 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/homeiq-logo-transparent.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ],
+      "package": "com.irina.popa.frontend"
     },
     "web": {
       "bundler": "metro",
@@ -55,7 +62,8 @@
           ]
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

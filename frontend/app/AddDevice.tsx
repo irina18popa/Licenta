@@ -2,7 +2,7 @@ import { View, Text, Image, TouchableOpacity, Modal } from 'react-native';
 import { useState, useRef, useEffect } from 'react'; // useRef for persisting intervalRef
 import { useNavigation } from '@react-navigation/native';
 import images from '../constants/images';
-import { handleRequest, fetchDiscoveredDevices, saveDevice } from './apis.js';
+import { saveDevice } from './apis.js';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { io, Socket } from 'socket.io-client';
 
@@ -77,7 +77,7 @@ const AddDevice = () => {
   // Function to handle saving a device when clicked
   const handleSaveDevice = async (device: Device) => {
     try {
-      const savedDevice = await saveDevice(device); // Save device through the API
+      await saveDevice(device); // Save device through the API
       //comanda noua
       setDevices((prev) => prev.filter((d) => d.uuid !== device.uuid)); // ✅ remove from list
       

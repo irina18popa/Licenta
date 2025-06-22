@@ -1,49 +1,88 @@
+// MyWarmColorPicker.tsx
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Dimensions } from 'react-native';
 import Animated, { useAnimatedStyle, SharedValue } from 'react-native-reanimated';
 import ColorPicker, {
+  HueSlider,
   Swatches,
   type ColorFormatsObject,
 } from 'reanimated-color-picker';
+
+// kelvin→hex helper (same as before)
+function kelvinToHex(k: number): string {
+  const temp = k / 100;
+  let r: number, g: number, b: number;
+  if (temp <= 66) r = 255;
+  else {
+    r = 329.698727446 * Math.pow(temp - 60, -0.1332047592);
+    r = Math.min(Math.max(r, 0), 255);
+  }
+  if (temp <= 66) {
+    // @ts-ignore
+    g = 99.4708025861 * Math.log(temp) - 161.1195681661;
+    g = Math.min(Math.max(g, 0), 255);
+  } else {
+    // @ts-ignore
+    g = 288.1221695283 * Math.pow(temp - 60, -0.0755148492);
+    g = Math.min(Math.max(g, 0), 255);
+  }
+  if (temp >= 66) b = 255;
+  else if (temp <= 19) b = 0;
+  else {
+    // @ts-ignore
+    b = 138.5177312231 * Math.log(temp - 10) - 305.0447927307;
+    b = Math.min(Math.max(b, 0), 255);
+  }
+  const toHex = (x: number) => {
+    const h = Math.round(x).toString(16);
+    return h.length === 1 ? '0' + h : h;
+  };
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
 
 interface MyWarmColorPickerProps {
   sharedColor: SharedValue<string>;
 }
 
 export default function MyWarmColorPicker({ sharedColor }: MyWarmColorPickerProps) {
-  // first three are warm, last three are white-ish
-  const palette = [
-    '#FFA500', // warm orange
-    '#FFD700', // warm gold
-    '#FFFF00', // warm yellow
-    '#FFFFFF', // pure white
-    '#FFFCF2', // very pale warm white
-    '#FFF8E1', // soft cream
-  ];
-
+  // animate the full-screen backdrop
   const backgroundStyle = useAnimatedStyle(() => ({
     backgroundColor: sharedColor.value,
   }));
 
-  const onColorSelect = (col: ColorFormatsObject) => {
+  // UI-thread callback to update the shared color
+  const onColorChange = (col: ColorFormatsObject) => {
     'worklet';
     sharedColor.value = col.hex;
   };
 
+  // temperature stops from cool(6500K)→warm(2000K)
+  const kelvins = [6500, 5000, 4000, 3000, 2000];
+  const tempColors = kelvins.map(k => kelvinToHex(k));
+
   return (
-    <Animated.View style={[styles.container, backgroundStyle]}>
+    <Animated.View style={[styles.wrapper, backgroundStyle]}>
       <View style={styles.pickerContainer}>
         <ColorPicker
           value={sharedColor.value}
-          sliderThickness={20}
-          thumbSize={20}
-          thumbShape="circle"
-          onChange={onColorSelect}
+          onChange={onColorChange}
+          sliderThickness={28}
+          thumbSize={24}
+          style={styles.picker}
+          adaptSpectrum={false}
+          boundedThumb
         >
+          {/* ← replace Panel1 with a horizontal temp slider */}
+          <HueSlider
+            style={styles.slider}
+            thumbShape="circle"
+          />
+
+          {/* optional quick‐pick swatches underneath */}
           <Swatches
             style={styles.swatchesContainer}
             swatchStyle={styles.swatchStyle}
-            colors={palette}
+            colors={kelvins.map(k => kelvinToHex(k))}
           />
         </ColorPicker>
       </View>
@@ -51,35 +90,45 @@ export default function MyWarmColorPicker({ sharedColor }: MyWarmColorPickerProp
   );
 }
 
+const { width, height } = Dimensions.get('window');
+const CARD_SIZE = Math.min(width, height) * 0.8;
+
 const styles = StyleSheet.create({
-  container: {
+  wrapper: {
     flex: 1,
-    borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 30,
   },
   pickerContainer: {
-    width: 280,
-    backgroundColor: '#fff',
-    padding: 16,
+    width: CARD_SIZE,
+    backgroundColor: '#202124',
+    padding: 20,
     borderRadius: 20,
+    // shadows
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.34,
+    shadowRadius: 6.27,
+    elevation: 10,
+  },
+  picker: {
+    gap: 20,
+  },
+  slider: {
+    width: '100%',
+    height: 40,
+    borderRadius: 16,
   },
   swatchesContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 10,
-    marginVertical: 10,
+    marginTop: 12,
   },
   swatchStyle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    margin: 4,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    marginHorizontal: 6,
   },
 });

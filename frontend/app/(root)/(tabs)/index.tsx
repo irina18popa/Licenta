@@ -15,7 +15,7 @@ import { io, Socket } from "socket.io-client";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { deleteDevice, getDevices } from "@/app/apis"; // your existing API helper
+import { deleteDevice, getUserDevices, getLoggedInUser, getDeviceStateById, handleRequest, getDeviceById } from "@/app/apis"; // your existing API helper
 import images from "../../../constants/images";
 import SwipeableRow from "@/components/SwipeableRow";
 import { Swipeable } from "react-native-gesture-handler";
@@ -31,6 +31,12 @@ interface RawDevice {
   manufacturer: string
   // …other fields…
 }
+
+interface DeviceWithState extends RawDevice {
+  isOn: boolean;
+  stateId?: string | null;
+}
+
 
 interface Weather {
   main: { temp: number; feels_like: number; humidity: number };
@@ -57,7 +63,7 @@ const HomeScreen = () => {
   const [weather, setWeather] = useState<Weather | null>(null);
   const [searchText, setSearchText] = useState("");
   const [selectedTab, setSelectedTab] = useState<"Rooms" | "Devices">("Rooms");
-  const [devices, setDevices] = useState<RawDevice[]>([]);
+  const [devices, setDevices] = useState<DeviceWithState[]>([]);
   const [loadingDevices, setLoadingDevices] = useState(true);
   const [deviceError, setDeviceError] = useState<string | null>(null);
   const [openRow, setOpenRow] = useState<Swipeable | null>(null);
@@ -73,7 +79,7 @@ const HomeScreen = () => {
       if (user) {
         const parsedUser = JSON.parse(user);
         setUserName(parsedUser.first_name + ' ' + parsedUser.last_name);  // Assuming first_name and last_name are in the response
-        setProfileImage(parsedUser.profile_image || images.avatar); // Fallback to default image if no profile_image
+        setProfileImage(parsedUser.profile_image || ''); // Fallback to default image if no profile_image
       }
     };
 
@@ -90,17 +96,41 @@ const HomeScreen = () => {
 
   const socketRef = useRef<Socket | null>(null);
 
+
   const fetchDevices = async () => {
-      try {
-        const rawList = await getDevices(); // REST API: GET /devices
-        setDevices(rawList);
-        setDeviceError(null);
-      } catch (err: any) {
-        setDeviceError(err.message || "Failed to fetch devices");
-      } finally {
-        setLoadingDevices(false);
-      }
-    };
+  try {
+    const rawList = await getUserDevices(); // [{_id, ...}, ...]
+    const devicesWithState = await Promise.all(
+      rawList.map(async (device) => {
+        try {
+          // Device state may be object with .data (array), or just array
+          const stateDataRaw = await getDeviceStateById(device._id);
+          const stateArr = Array.isArray(stateDataRaw)
+            ? stateDataRaw
+            : Array.isArray(stateDataRaw.data)
+              ? stateDataRaw.data
+              : [];
+          const switchLedObj = stateArr.find(s => s.code === "switch_led");
+          return {
+            ...device,
+            isOn: switchLedObj ? switchLedObj.value : false,
+            stateId: switchLedObj ? switchLedObj._id : null,
+          };
+        } catch (err) {
+          // If call fails, device will be treated as OFF
+          return { ...device, isOn: false };
+        }
+      })
+    );
+    setDevices(devicesWithState);
+    setDeviceError(null);
+  } catch (err: any) {
+    setDeviceError(err.message || "Failed to fetch devices");
+  } finally {
+    setLoadingDevices(false);
+  }
+};
+
 
 
   useEffect(() => {
@@ -121,6 +151,7 @@ const HomeScreen = () => {
           d._id === deviceId ? { ...d, status: newStatus } : d
         )
       );
+      fetchDevices()
     });
 
     return () => {
@@ -128,15 +159,43 @@ const HomeScreen = () => {
     };
   }, []);
 
-  const toggleDevice = (_id: string) => {
-  setDevices((prev) =>
-    prev.map((d) =>
-      d._id === _id
-        ? {
-            ...d,
-            status: d.status === "online" ? "offline" : "online"
-          }: d));
-    // If you need to persist toggle to backend, call your toggle‐API here.
+
+  const handleToggleSwitch = async (deviceId: string, on: boolean) => {
+    try {
+      // Build Tuya-style payload
+      const payload = {
+        commands: [
+          { code: "switch_led", value: on }
+        ]
+      };
+      // Get device details for tuyaID/metadata
+      const res = await getDeviceById(deviceId); // You might have a getDeviceById(deviceId) instead if needed
+      const tuyaID = res?.metadata || 'unknown';
+
+      const fullPayload = {
+        tuyaID,
+        ...payload
+      };
+      // Topic & type
+      const topic = `app/devices/${deviceId}/do_command/in`;
+      const type = "publish";
+      // Send to backend (MQTT broker or similar)
+      await handleRequest(topic, type, JSON.stringify(fullPayload));
+      // fetchDevices()
+
+      // Update local state for instant feedback
+      setDevices((prev) =>
+        prev.map((d) =>
+          d._id === deviceId
+            ? { ...d, isOn: on }
+            : d
+        )
+      );
+      //setTimeout(() => fetchDevices(), 500)
+    } catch (err) {
+      Alert.alert("Error", "Failed to toggle switch");
+      console.error("Toggle error:", err.message || err);
+    }
   };
 
   const renderRoom = ({ item }: { item: Room }) => (
@@ -149,7 +208,7 @@ const HomeScreen = () => {
     </TouchableOpacity>
   );
 
-  const renderDevice = ({ item }: { item: RawDevice }) => {
+  const renderDevice = ({ item }: { item: DeviceWithState }) => {
     
     const handleRowOpen = (ref: Swipeable) => {
       if (openRow && openRow !== ref) {
@@ -225,16 +284,17 @@ const HomeScreen = () => {
           </View>
           {isTuya && 
           (<Switch
-            value={isOnline}
-            onValueChange={() => toggleDevice(item._id)}
+            value={item.isOn}
+            onValueChange={(val) => handleToggleSwitch(item._id, val)}
             trackColor={{ true: "#34D399", false: "#9CA3AF" }}
-            thumbColor={isOnline ? "#10B981" : "#F3F4F8"}
+            thumbColor={item.isOn ? "#10B981" : "#F3F4F8"}
             disabled={!isOnline}
           />)}
         </TouchableOpacity>
       </SwipeableRow>
     );
   };
+
 
   return (
     <SafeAreaView className="flex-1 bg-black">

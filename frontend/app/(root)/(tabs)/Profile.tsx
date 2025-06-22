@@ -29,7 +29,7 @@ const Profile = () => {
       if (user) {
         const parsedUser = JSON.parse(user);
         setUserName(parsedUser.first_name + ' ' + parsedUser.last_name);  // Assuming first_name and last_name are in the response
-        setProfileImage(parsedUser.profile_image || images.avatar); // Fallback to default image if no profile_image
+        setProfileImage(parsedUser.profile_image || ''); // Fallback to default image if no profile_image
       }
     };
 
@@ -91,13 +91,17 @@ const Profile = () => {
   };
 
   // Ensure that profileImage is a valid URI, otherwise, use a fallback image
-  const getValidImageUri = (uri: string) => {
-    // If uri is null, undefined, or an invalid value, fallback to a default image
-    if (!uri || uri === '') {
-      return images.avatar; // Return the fallback avatar if the URI is invalid or empty
+  const getValidImageSource = (img) => {
+    // If not a string, return fallback local image
+    if (typeof img !== 'string' || !img.trim()) return images.avatar;
+    // Base64 or file URI
+    if (img.startsWith('data:image') || img.startsWith('file://') || img.startsWith('http')) {
+      return { uri: img };
     }
-    return uri; // Return the valid URI
+    // Otherwise fallback
+    return images.avatar;
   };
+
 
   return (
     <SafeAreaView className="flex-1">
@@ -112,7 +116,7 @@ const Profile = () => {
       <View className="items-center mt-6">
         <View className="relative">
           <Image
-            source={{ uri: getValidImageUri(profileImage) }} // Validate the URI before passing it to the Image component
+            source={getValidImageSource(profileImage)} // Validate the URI before passing it to the Image component
             className="w-28 h-28 rounded-full"
           />
           <TouchableOpacity className="absolute bottom-0 right-0 bg-blue-500 p-2 rounded-full" onPress={pickImage}>

@@ -26,6 +26,17 @@ const TabsLayout = () => {
     const [loading, setLoading] = useState(true);
     const router = useRouter()
 
+    // useEffect(() => {
+    //     (async () => {
+    //         // Optionally: await SecureStore.deleteItemAsync('user');
+    //         // await SecureStore.deleteItemAsync('userToken');
+    //         // To clear *all* SecureStore items:
+    //         await SecureStore.deleteItemAsync('user');
+    //         await SecureStore.deleteItemAsync('userToken');
+    //         // You could clear AsyncStorage here too if used
+    //     })();
+    //     }, []);
+
     useEffect(() => {
     const validateToken = async () => {
       const token = await SecureStore.getItemAsync('userToken');

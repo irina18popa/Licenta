@@ -6,11 +6,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSharedValue } from 'react-native-reanimated';
 import { colorKit } from 'reanimated-color-picker';
 import images from '@/constants/images';
-import { useLocalSearchParams } from 'expo-router';
-import { getDeviceById, updateDeviceById } from '@/app/apis';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { getDeviceById, getDeviceStateById, updateDeviceById } from '@/app/apis';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import axios from 'axios';
+import LampScene from '@/components/LampScene';
+import MusicMode from '@/components/MusicMode';
 
 
 type Tab = 'Warm' | 'Color' | 'Scene' | 'Music';
@@ -24,43 +25,56 @@ const LampControl = () => {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const initialColor = colorKit.randomRgbColor().hex();
-  const sharedColor = useSharedValue(initialColor);
+  const [dbColor, setDbColor] = useState<string | null>(null); // null means "not loaded"
+  const sharedColor = useSharedValue('#ffffff'); // Safe fallback, but will be overwritten
+
+  //const initialColor = colorKit.randomRgbColor().hex();
+
 
   const { id } = useLocalSearchParams();
 
-  useEffect(() => {
-    const fetchDevice = async () => {
-      try {
-        const device = await getDeviceById(id as string);
-        setDeviceName(device.name);
+  const fetchDevice = async () => {
+    try {
+      const device = await getDeviceById(id as string);
+      setDeviceName(device.name);
 
-        // 🔽 Fetch state (e.g., /api/devicestate/:deviceID)
-        const stateRes = await axios.get(`${API_URL}/devicestate/${id}`);
-        
-        const colourData = stateRes.data?.data?.find((d: any) => d.code === 'colour_data_v2');
-        if (colourData && colourData.value) {
-          const hsvObj = JSON.parse(colourData.value); // { h, s, v }
-          const hex = colorKit.HEX({
-            h: hsvObj.h,
-            s: hsvObj.s / 10,  // Tuya scale to 0–100
-            v: hsvObj.v / 10
-          });
-
-        sharedColor.value = hex; // ✅ Apply to reanimated shared value
+      const stateRes = await getDeviceStateById(id);
+      const colourData = stateRes.data?.data?.find((d: any) => d.code === 'colour_data_v2');
+      if (colourData && colourData.value) {
+        const hsvObj = JSON.parse(colourData.value);
+        const hex = colorKit.HEX({
+          h: hsvObj.h,
+          s: hsvObj.s / 10,
+          v: hsvObj.v / 10
+        });
+        setDbColor(hex);
+        sharedColor.value = hex;
+      } else {
+        setDbColor('#ffffff');
+        sharedColor.value = '#ffffff';
       }
-      } catch (err) {
-        console.error("Failed to fetch device/state", err);
-        setDeviceName("Unknown device");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (id) {
-      fetchDevice();
+    } catch (err) {
+      setDbColor('#ffffff');
+      sharedColor.value = '#ffffff';
+    } finally {
+      setLoading(false);
     }
+  };
+
+  // Reset and fetch on device ID change
+  useEffect(() => {
+    setDbColor(null);
+    setLoading(true);
   }, [id]);
+
+  // Refetch on focus (for fresh DB value)
+  useFocusEffect(
+    React.useCallback(() => {
+      if (id) {
+        fetchDevice();
+      }
+    }, [id])
+  );
 
   const handleSave = async () => {
   if (!id || !deviceName) return;
@@ -80,13 +94,17 @@ const LampControl = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'Warm':
-        return <MyWarmColorPicker sharedColor={sharedColor}/>;
+        return <MyWarmColorPicker sharedColor={sharedColor}/>
       case 'Color':
-        return <MyColorPicker sharedColor={sharedColor} deviceID={id}/>;
+        return dbColor ? (
+          <MyColorPicker sharedColor={sharedColor} deviceID={id} key={dbColor} />
+        ) : (
+          <ActivityIndicator color="#fff" />
+        );
       case 'Scene':
-        return <Text className="text-center text-lg text-white">Choose a Scene</Text>;
+        return <LampScene></LampScene>
       case 'Music':
-        return <Text className="text-center text-lg text-white">Music Controls</Text>;
+        return <MusicMode deviceID={id}></MusicMode>;
       default:
         return null;
     }

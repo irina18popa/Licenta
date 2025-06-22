@@ -140,6 +140,22 @@ export const updateUser = async (req, res) => {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    // Add device if deviceId is provided in the request body
+    if (req.body.deviceId) {
+      // Only add if not already present
+      if (!user.devices.includes(req.body.deviceId)) {
+        user.devices.push(req.body.deviceId);
+      }
+    }
+
+    if (req.body.roomId) {
+      // Only add if not already present
+      if (!user.rooms.includes(req.body.roomId)) {
+        user.rooms.push(req.body.roomId);
+      }
+    }
+
+    // Handle normal updates
     if (req.body.first_name) user.first_name = req.body.first_name;
     if (req.body.last_name) user.last_name = req.body.last_name;
     if (req.body.email) user.email = req.body.email;
@@ -147,7 +163,8 @@ export const updateUser = async (req, res) => {
     if (req.body.profile_image) user.profile_image = req.body.profile_image;
     if (req.body.role) user.role = req.body.role;
     if (req.body.preferences) user.preferences = req.body.preferences;
-    if (req.body.devices) user.devices = req.body.devices;
+    // if (req.body.devices && Array.isArray(req.body.devices)) user.devices = req.body.devices;
+    // if (req.body.rooms && Array.isArray(req.body.rooms)) user.rooms = req.body.rooms;
 
     const updatedUser = await user.save();
     res.json(updatedUser);
@@ -155,6 +172,52 @@ export const updateUser = async (req, res) => {
     res.status(400).json({ message: err.message });
   }
 };
+
+// Route: PUT /users/:id/remove-device
+export const removeDevice = async (req, res) => {
+  try {
+    const { deviceId } = req.body;
+    if (!deviceId) {
+      return res.status(400).json({ message: "deviceId is required" });
+    }
+
+    // Atomically remove deviceId from devices array
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params.id,
+      { $pull: { devices: deviceId } },
+      { new: true }
+    );
+    if (!updatedUser) return res.status(404).json({ message: "User not found" });
+
+    res.json(updatedUser);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};
+
+// Route: PUT /users/:id/remove-room
+export const removeRoom = async (req, res) => {
+  try {
+    const { roomId } = req.body;
+    if (!roomId) {
+      return res.status(400).json({ message: "roomId is required" });
+    }
+
+    // Atomically remove roomId from rooms array
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params.id,
+      { $pull: { rooms: roomId } },
+      { new: true }
+    );
+    if (!updatedUser) return res.status(404).json({ message: "User not found" });
+
+    res.json(updatedUser);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};
+
+
 
 // Delete user
 export const deleteUser = async (req, res) => {
