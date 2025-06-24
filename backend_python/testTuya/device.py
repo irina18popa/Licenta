@@ -339,25 +339,25 @@ payload_combo = {
 }
 
 
-# def main():
-#     device_id = "bfbdeb81177e0fca75y6ws"
+def main():
+    device_id = "bfbdeb81177e0fca75y6ws"
 
-#     # send the command
-#     response = openapi.post(
-#         f"/v1.0/iot-03/devices/{device_id}/commands",
-#         payload_combo
-#     )
-#     print("Command response:")
-#     print(json.dumps(response, indent=4))
+    # send the command
+    response = openapi.post(
+        f"/v1.0/iot-03/devices/{device_id}/commands",
+        payload_combo
+    )
+    print("Command response:")
+    print(json.dumps(response, indent=4))
 
-#     # fetch status
-#     status = openapi.get(f"/v1.0/devices/{device_id}/status")
-#     print("\nDevice status:")
-#     print(json.dumps(status, indent=4))
+    # fetch status
+    status = openapi.get(f"/v1.0/devices/{device_id}/status")
+    print("\nDevice status:")
+    print(json.dumps(status, indent=4))
 
 
-# if __name__ == "__main__":
-#     main()
+if __name__ == "__main__":
+    main()
 
 # # # Pretty-print the JSON respons
 #print(json.dumps(response, indent=4))

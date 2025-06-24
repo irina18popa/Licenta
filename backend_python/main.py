@@ -5,6 +5,7 @@ import paho.mqtt.client as mqtt
 from upnp_devices import scan_ssdp, device_exists
 from ble_scan import scan_ble
 from upnp_commands import get_upnp_actions
+from upnp_state import get_upnp_device_state
 from testTuya.device import get_tuya_device, get_tuya_device_commands, get_tuya_device_status, get_device_state, do_command
 
 
@@ -232,10 +233,10 @@ async def _do_handle_commands(raw: str, db_device_id:str):
     then await the appropriate command‐fetcher and publish to TOPIC_PUB2.
     """
     try:
-        protocol, addr = raw.split("/")
+        protocol, addr = raw.split("/", 1)
         protocol = protocol.lower()
         if protocol == "upnp":
-            DEVICE_DESC_URL = f"http://{addr}:2870/dmr.xml"
+            DEVICE_DESC_URL = f"{addr}"
             actions = await get_upnp_actions(DEVICE_DESC_URL)
 
         elif protocol in ("ble", "tuya"):
@@ -249,7 +250,7 @@ async def _do_handle_commands(raw: str, db_device_id:str):
         mqtt_client.publish(pub_topic, json.dumps(actions), qos=0, retain=False)
 
     except ValueError:
-        print(f"[Python] ERROR: Invalid payload for commands. Expected 'protocol/addr/device_id', got '{raw}'")
+        print(f"[Python] ERROR: Invalid payload for commands. Expected 'protocol/addr', got '{raw}'")
 
 
 
@@ -259,15 +260,18 @@ async def _do_handle_state(raw: str, db_device_id:str):
     then publishes it to MQTT topic TOPIC_PUB3.
     """
     try:
-        protocol, addr = raw.split("/")
+        protocol, addr = raw.split("/", 1)
         protocol = protocol.lower()
 
-        if protocol != "tuya":
+        if protocol == "tuya":
+                    # Fetch Tuya device state
+            state_payload = await get_device_state(addr)
+            
+        elif protocol == "upnp":
+            state_payload = await get_upnp_device_state(addr)
+        else:   
             print(f"[Python] Unsupported protocol for state fetch: {protocol}")
             return
-
-        # Fetch Tuya device state
-        state_payload = await get_device_state(addr)
 
         if not state_payload:
             print(f"[ERROR] No payload received for {addr}")
