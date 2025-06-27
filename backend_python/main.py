@@ -205,16 +205,16 @@ async def _do_handle_command_action(raw: str, db_device_id: str):
     """
     try:
         data = json.loads(raw)
-        tuya_id = data.get("tuyaID")
+        addr = data.get("address")
         commands = data.get("commands")
 
-        if not tuya_id or not isinstance(commands, list):
+        if not addr or not isinstance(commands, list):
             print("[ERROR] Invalid command payload: missing tuyaID or commands[]")
             return
 
-        success = await do_command(tuya_id, commands)
+        success = await do_command(addr, commands)
         if not success:
-            print(f"[ERROR] No payload received for {addr}")
+            print(f"[ERROR] No payload returned for do_command")
             return
 
         # it publishes to the state_topic to update the db after the new command

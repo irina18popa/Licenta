@@ -18,7 +18,6 @@ async def get_upnp_actions(device_url):
 
         for service_name, service in device.services.items():
             for action in service.actions.values():
-                
                 # Skip actions that have any 'out' arguments
                 if any(arg.direction == "out" for arg in action.arguments):
                     continue
@@ -40,7 +39,7 @@ async def get_upnp_actions(device_url):
                     parameters.append(param_info)
 
                 command_info = {
-                    "name": action.name,
+                    "name": f"{service.service_type}:{action.name}",
                     "parameters": parameters
                 }
                 commands.append(command_info)
@@ -51,11 +50,12 @@ async def get_upnp_actions(device_url):
             "commands": commands
         }
 
-        return device_commands
+        return device_commands    
 
        
 
 # async def main():
+#     DEVICE_DESC_URL = "http://192.168.1.134:2870/dmr.xml"
 #     device_commands = await get_upnp_actions(DEVICE_DESC_URL)
 #     print(json.dumps(device_commands, indent=4))  # Pretty print the JSON
 

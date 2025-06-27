@@ -40,6 +40,8 @@ async def get_upnp_actions(device_url):
 
         return {"commands": commands}
 
+
+
 async def get_upnp_device_state(device_url):
     """
     Extracts all available state by calling UPnP "getter" actions (actions with out args).
@@ -94,26 +96,30 @@ async def get_upnp_device_state(device_url):
 
         return {"state": entries}
 
-async def main():
-    """
-    Usage:
-      python script.py <device_description_url> [--actions]
-    Default (no --actions): prints {{"state": [...]}} to stdout for MQTT payload.
-    --actions: lists available commands
-    """
-    if len(sys.argv) < 2:
-        print("Usage: python script.py <device_description_url> [--actions]")
-        sys.exit(1)
 
-    device_url = sys.argv[1]
-    mode = sys.argv[2] if len(sys.argv) > 2 else '--state'
+async def upnp_do_command(device_url:str, commands:list):
 
-    if mode == '--actions':
-        result = await get_upnp_actions(device_url)
-    else:
-        result = await get_device_state(device_url)
 
-    print(json.dumps(result, indent=4))
+# async def main():
+#     """
+#     Usage:
+#       python script.py <device_description_url> [--actions]
+#     Default (no --actions): prints {{"state": [...]}} to stdout for MQTT payload.
+#     --actions: lists available commands
+#     """
+#     if len(sys.argv) < 2:
+#         print("Usage: python script.py <device_description_url> [--actions]")
+#         sys.exit(1)
 
-if __name__ == "__main__":
-    asyncio.run(main())
+#     device_url = sys.argv[1]
+#     mode = sys.argv[2] if len(sys.argv) > 2 else '--state'
+
+#     if mode == '--actions':
+#         result = await get_upnp_actions(device_url)
+#     else:
+#         result = await get_device_state(device_url)
+
+#     print(json.dumps(result, indent=4))
+
+# if __name__ == "__main__":
+#     asyncio.run(main())
