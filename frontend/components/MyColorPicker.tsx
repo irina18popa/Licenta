@@ -7,9 +7,10 @@ import ColorPicker, { Panel2, BrightnessSlider, InputWidget, ColorFormatsObject,
 interface MyColorPickerInlineProps {
   sharedColor: SharedValue<string>;
   deviceID: string; // you can pass this from parent
+  mode: string
 }
 
-const MyColorPicker = ({ sharedColor, deviceID }: MyColorPickerInlineProps) => {
+const MyColorPicker = ({ sharedColor, deviceID, mode } : MyColorPickerInlineProps) => {
   const backgroundStyle = useAnimatedStyle(() => ({ backgroundColor: sharedColor.value }));
 
 
@@ -30,17 +31,23 @@ const MyColorPicker = ({ sharedColor, deviceID }: MyColorPickerInlineProps) => {
       ],
     };
 
-    const res = await getDeviceById(deviceID);
-    const fullPayload = {
-      tuyaID: res.metadata || 'unknown',
-      ...payload // spread so "commands" is top-level
-    };
+    if (mode === 'live')
+    {
+      const res = await getDeviceById(deviceID);
+      const fullPayload = {
+        protocol: 'tuya',
+        address: res.metadata || 'unknown',
+        ...payload
+      };
 
-    const topic = `app/devices/${deviceID}/do_command/in`;
-    const type = 'publish';
+      const topic = `app/devices/${deviceID}/do_command/in`;
+      const type = 'publish';
 
-    await handleRequest(topic, type, JSON.stringify(fullPayload));
-
+      await handleRequest(topic, type, JSON.stringify(fullPayload));
+    } else {
+      await addScenarioCommand(deviceID, 'tuya', payload)
+    }
+    
   } catch (err) {
     console.warn('Failed to send color payload:', err);
   }

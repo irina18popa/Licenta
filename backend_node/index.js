@@ -12,7 +12,10 @@ import deviceCommandRoutes from "./routes/DeviceCommandRoutes.js";
 import discoveredDevicesRoutes from "./routes/TemporarlyDevicesRoutes.js";
 import mqttTopicRoutes from "./routes/MQTTTopicRoutes.js";
 import deviceStateRoutes from "./routes/DeviceStateRoutes.js"
+import uploadRoutes from "./routes/UploadRoutes.js"
 import { saveDiscoveredDevice } from "./discoveredDevices.js";
+import path from "path";
+import { mediaRoutes } from "./routes/MediaRoutes.js";
 
 dotenv.config();
 
@@ -33,16 +36,7 @@ const MQTT_BROKER = "mqtt://192.168.1.136";
 const mqttClient = mqtt.connect(MQTT_BROKER);
 
 // MQTT Topics
-const DISCOVER_IN  = "app/discover/in";
 const DISCOVER_OUT = "app/discover/out";
-const SUBSCRIBE_TOPIC = "hub/subscribe"  //topic la care publica server ul topicuri la care sa dea subscribe hub ul
-const COMMANDS_OUT = "app/devices/commands/out";
-const STATUS_IN    = "app/devices/status/in";
-const STATUS_OUT   = "app/devices/status/out";
-const STATE_IN = "app/devices/state/in"
-const DO_COMMAND_IN = "app/devices/do_command/in"
-const STATE_OUT = "app/devices/state/out"
-const DO_COMMAND_OUT = "app/devices/do_command/out"
 
 const detectDeviceType = (deviceName) => {
   const name = deviceName.toLowerCase();
@@ -240,17 +234,6 @@ mqttClient.on("message", async (topic, message) => {
     }
   }
 
-  // if (topic === COMMANDS_OUT) {
-  //   (async () => {
-  //     try {
-  //       const payload = JSON.parse(message.toString());
-  //       await axios.post(`${process.env.LOCALHOST_URL}/devicecommands`, payload);
-  //     } catch (error) {
-  //       console.error("Failed to send data to API:", error.response?.data || error.message);
-  //     }
-  //   })();
-  // }
-
   if (action === "status") {
     // STATUS_OUT sends messages like "<newStatus>"
     const statusText = message.toString();
@@ -319,6 +302,9 @@ app.use("/api/discovered", discoveredDevicesRoutes);
 app.use("/api/devicecommands", deviceCommandRoutes);
 app.use("/api/mqtttopic", mqttTopicRoutes(mqttClient));
 app.use("/api/devicestate", deviceStateRoutes)
+app.use("/api/media", express.static(path.join(process.cwd(), 'media')));
+app.use("/api/media", mediaRoutes)
+app.use("/api/upload", uploadRoutes);
 
 connectDB()
   .then(() => {

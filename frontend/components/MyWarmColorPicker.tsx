@@ -41,10 +41,12 @@ function kelvinToHex(k: number): string {
 }
 
 interface MyWarmColorPickerProps {
+  deviceId: string
   sharedColor: SharedValue<string>;
+  mode: string
 }
 
-export default function MyWarmColorPicker({ sharedColor }: MyWarmColorPickerProps) {
+export default function MyWarmColorPicker({ deviceId, sharedColor, mode }: MyWarmColorPickerProps) {
   // animate the full-screen backdrop
   const backgroundStyle = useAnimatedStyle(() => ({
     backgroundColor: sharedColor.value,

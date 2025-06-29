@@ -7,36 +7,50 @@ import Svg, { Polyline } from 'react-native-svg';
 import { Text } from 'react-native';
 import { getDeviceById, handleRequest } from '@/app/apis';
 
-const MusicMode = ({ deviceID }: { deviceID: string }) => {
+
+interface MusicModeProps {
+  deviceID: string; // you can pass this from parent
+  mode: string
+}
+
+
+const MusicMode = ({ deviceID, mode } : MusicModeProps) => {
 
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [waveform, setWaveform] = useState<number[]>([]);
   const interval = useRef<NodeJS.Timer | null>(null);
 
     const sendMusicModeCommand = async (deviceID: string) => {
-    try {
-        const payload = {
-        commands: [
-            {
-            code: 'work_mode',
-            value: 'music',
-            }
-        ],
-        };
+      try {
+          const payload = {
+            commands: [
+              {
+              code: 'work_mode',
+              value: 'music',
+              }
+            ],
+          };
 
-        const res = await getDeviceById(deviceID);
-        const fullPayload = {
-        tuyaID: res.metadata || 'unknown',
-        ...payload
-        };
+          if (mode === 'live')
+          {
+            const res = await getDeviceById(deviceID);
+            const fullPayload = {
+              protocol: 'tuya',
+              address: res.metadata || 'unknown',
+              ...payload
+            };
 
-        const topic = `app/devices/${deviceID}/do_command/in`;
-        const type = 'publish';
+            const topic = `app/devices/${deviceID}/do_command/in`;
+            const type = 'publish';
 
-        await handleRequest(topic, type, JSON.stringify(fullPayload));
-    } catch (err) {
+            await handleRequest(topic, type, JSON.stringify(fullPayload));
+          } else {
+            await addScenarioCommand(deviceID, 'tuya', payload)
+          }
+
+      } catch (err) {
         console.warn('Failed to send work_mode command:', err);
-    }
+      }
     };
 
 

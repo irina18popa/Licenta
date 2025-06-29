@@ -1,89 +1,182 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { SafeAreaView, View, Text, Image, Pressable, TouchableOpacity, Platform, ToastAndroid, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import images from '@/constants/images';
 import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams } from 'expo-router';
+import { getDeviceById, getDeviceStateById, handleRequest, uploadFile, deleteMediaByUrl } from '@/app/apis';
+import * as FileSystem from 'expo-file-system';
 
 
-const RemoteControlScreen: React.FC<{ scanning?: boolean }> = ({ scanning = false }) => {
 
-    const [volume, setVolume] = useState<number>(10);
-    const [isMuted, setIsMuted] = useState(false);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [videoUri, setVideoUri] = useState<string | null>(null);
+const RemoteControlScreen: React.FC = () => {
 
-    const { id } = useLocalSearchParams();
-    console.log("deviceId:", id);
+  const [volume, setVolume] = useState<number>(0);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [videoUri, setVideoUri] = useState<string | null>(null);
+
+  const { id, mode } = useLocalSearchParams();
 
     
-  const pickVideo = async () => {
-    // ask permission (on iOS you also need to add keys to Info.plist)
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Allow gallery access to pick a video.');
-      return;
-    }
+  useEffect(() => {
+    (async () => {
+      try {
+        const resp = await getDeviceStateById(id);
+        const arr  = resp.data || [];
 
+        // find the two entries
+        const volEntry = arr.find(e => e.code.endsWith(':GetVolume'));
+        const muteEntry = arr.find(e => e.code.endsWith(':GetMute'));
+
+        if (volEntry)  setVolume(Number(volEntry.value));
+        if (muteEntry) setIsMuted(Boolean(muteEntry.value));
+      } catch (err) {
+        console.warn('Failed to load device state', err);
+      }
+    })();
+  }, [id]);
+
+
+  // helper to publish an UPnP command
+  const sendCommand = async (commandName: string, params: Record<string, any>) => {
+    const dev     = await getDeviceById(id);
+    const protocol = 'upnp'
+    const address = dev.metadata || 'unknown';
+    const payload = { protocol, address, commands: [{ name: commandName, parameters: params }] };
+    const topic   = `app/devices/${id}/do_command/in`;
+    await handleRequest(topic, 'publish', JSON.stringify(payload));
+  };
+  
+
+  const pickVideo = async () => {
+    // 1) pick
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') return Alert.alert('Permission needed');
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-      allowsEditing: false,
-      quality: 0.8,
     });
+    if (result.canceled) return;
 
-    if (!result.canceled) {
-      // URIs in v5+ are in result.assets[0].uri
-      const uri = result.assets[0].uri;
-      setVideoUri(uri);
-      Platform.OS === 'android'
-        ? ToastAndroid.show('Video selected!', ToastAndroid.SHORT)
-        : Alert.alert('Selected', 'Video loaded.');
+    const asset = result.assets[0];
+    const localUri = asset.uri;
+
+    // 2) upload
+    showToast('Uploading video…');
+    let mediaUrl: string;
+    try {
+      mediaUrl = await uploadFile(localUri);
+    } catch (e) {
+      console.error(e);
+      return Alert.alert('Upload failed');
     }
+    console.log('▶ Uploaded, URL =', mediaUrl);
+    //Alert.alert('Debug', `Media URL: ${mediaUrl}`);
+
+    const cmd = {
+      name: 'urn:schemas-upnp-org:service:AVTransport:1:SetAVTransportURI',
+      parameters: { InstanceID: 0, CurrentURI: mediaUrl, CurrentURIMetaData: '' }
+    };
+
+    if (mode === 'live') {
+      // send immediately
+      await sendCommand(cmd.name, cmd.parameters);
+    } else {
+      // stash for later
+      addScenarioCommand(id, 'upnp', { name: cmd.name, parameters: cmd.parameters });
+    }
+
+    setVideoUri(mediaUrl);
   };
 
+
+
   // Show toast or alert
-  const showVolume = (val: number) => {
-    const message = `Volume: ${val}`;
-    if (Platform.OS === 'android') {
-      ToastAndroid.show(message, ToastAndroid.SHORT);
-    } else {
-      Alert.alert('Volume Changed', message);
-    }
+  const showToast = (msg: string) => {
+    if (Platform.OS === 'android') ToastAndroid.show(msg, ToastAndroid.SHORT);
+    else Alert.alert(msg);
   };
 
   // Handlers
-  const increaseVolume = () => {
-    const newVol = volume + 1;
+
+  const changeVolume = async (unit:number) => {
+    const newVol = Math.min(100, Math.max(0, volume + unit));
     setVolume(newVol);
-    showVolume(newVol);
+    
+    const cmd = {
+      name: 'urn:schemas-upnp-org:service:RenderingControl:1:SetVolume',
+      parameters: { InstanceID: 0, Channel: 'Master', DesiredVolume: newVol }
+    };
+
+    if (mode === 'live') {
+      // send immediately
+      await sendCommand(cmd.name, cmd.parameters);
+    } else {
+      // stash for later
+      addScenarioCommand(id, 'upnp', { name: cmd.name, parameters: cmd.parameters });
+    }
+    //showToast(`Volume: ${newVol}`);
   };
 
-  const decreaseVolume = () => {
-    const newVol = Math.max(0, volume - 1);
-    setVolume(newVol);
-    showVolume(newVol);
+
+  const toggleMute = async () => {
+    const target = !isMuted;
+    setIsMuted(target);
+
+    const cmd = {
+      name: 'urn:schemas-upnp-org:service:RenderingControl:1:SetMute',
+      parameters: { InstanceID: 0, Channel: 'Master', DesiredMute: target }
+    };
+
+    if (mode === 'live') {
+      // send immediately
+      await sendCommand(cmd.name, cmd.parameters);
+    } else {
+      // stash for later
+      addScenarioCommand(id, 'upnp', { name: cmd.name, parameters: cmd.parameters });
+    }
+    //showToast(target ? 'Muted' : 'Unmuted');
   };
 
-  const toggleMute = () => {
-    setIsMuted(prev => !prev);
-    const msg = isMuted ? 'Unmuted' : 'Muted';
-  };
 
-  const togglePlay = () => {
+  const togglePlay = async() => {
+    let cmd = {name:'', parameters:{}}
+
+    if (isPlaying) {
+    // currently playing → send STOP
+      cmd = {
+        name: 'urn:schemas-upnp-org:service:AVTransport:1:Stop',
+        parameters: { InstanceID: 0 }
+      };
+      await deleteMediaByUrl(videoUri)
+      showToast('Stopped');
+
+    } else {
+      // currently stopped → send PLAY
+      cmd = {
+        name: 'urn:schemas-upnp-org:service:AVTransport:1:Play',
+        parameters: { InstanceID: 0, Speed: '1' }
+      };
+      showToast('Playing');
+    }
+
+    if (mode === 'live') {
+      // send immediately
+      await sendCommand(cmd.name, cmd.parameters);
+    } else {
+      // stash for later
+      addScenarioCommand(id, 'upnp', { name: cmd.name, parameters: cmd.parameters });
+    }
+    // flip the UI state
     setIsPlaying(prev => !prev);
-    const msg = isPlaying ? 'Paused' : 'Playing';
   };
+
 
   return (
     <SafeAreaView className="flex-1 bg-black">
       {/* Header */}
-        <Image source={images.background} className="absolute w-full h-full" blurRadius={10} />
-      {/* <View className="flex-row items-center px-4 py-2">
-        <Pressable className="p-2">
-          <Ionicons name="arrow-back" size={24} color="white" />
-        </Pressable>
-      </View> */}
+      <Image source={images.background} className="absolute w-full h-full" blurRadius={10} />
 
       {/* TV Image */}
       <View className="items-center mt-24">
@@ -118,7 +211,7 @@ const RemoteControlScreen: React.FC<{ scanning?: boolean }> = ({ scanning = fals
               <Text className="text-white mt-1">{isMuted ? 'Unmute' : 'Mute'}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity className="items-center mt-8" onPress={pickVideo}>
+            <TouchableOpacity className="items-center mt-8" onPress={pickVideo} >
               <View className="w-16 h-16 rounded-full bg-gray-300 items-center justify-center">
                 <Ionicons name="download-outline" size={24} color="black" />
               </View>
@@ -129,14 +222,15 @@ const RemoteControlScreen: React.FC<{ scanning?: boolean }> = ({ scanning = fals
           {/* Right Column: Volume Slider */}
           <View className="items-center">
             <View className="w-20 h-60 rounded-full bg-gray-300 items-center justify-between py-2">
-                <TouchableOpacity onPress={increaseVolume}>
-                    <Ionicons name="add" size={30} color="black" />
-                </TouchableOpacity>
-              <Text className="text-black text-xl">VOL</Text>
-                <TouchableOpacity onPress={decreaseVolume}>
-                    <Ionicons name="remove" size={30} color="black" />
-                </TouchableOpacity>            
+              <TouchableOpacity onPress={() => changeVolume(1)}>
+                  <Ionicons name="add" size={30} color="black" />
+              </TouchableOpacity>
+              <Text className="text-black text-xl">{volume}</Text>
+              <TouchableOpacity onPress={() => changeVolume(-1)}>
+                  <Ionicons name="remove" size={30} color="black" />
+              </TouchableOpacity>            
             </View>
+            <Text className="text-white mt-1">Volume</Text>
           </View>
         </View>
 
@@ -151,19 +245,19 @@ const RemoteControlScreen: React.FC<{ scanning?: boolean }> = ({ scanning = fals
               <Ionicons name="caret-back" size={30} color="black" style={{ position: 'absolute', left: 10 }} />
               <Ionicons name="caret-forward" size={30} color="black" style={{ position: 'absolute', right: 10 }} />
               <TouchableOpacity className="w-14 h-14 rounded-full bg-gray-500 items-center justify-center" onPress={togglePlay}>
-                <Ionicons name={isPlaying ? 'pause' : 'play'} size={30} color="black" />
+                <Ionicons name={isPlaying ? 'stop' : 'play'} size={30} color="black" />
               </TouchableOpacity>
             </View>
             <Text className="text-white mt-1">Media Control</Text>
           </View>
 
           {/* Stop Button */}
-          <TouchableOpacity className="items-center">
+          {/* <TouchableOpacity className="items-center" onPress={handleStop}>
             <View className="w-16 h-16 rounded-full bg-gray-300 items-center justify-center">
               <Ionicons name="square" size={24} color="black" />
             </View>
             <Text className="text-white mt-1">Stop</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
       </View>
       </BlurView>

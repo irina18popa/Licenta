@@ -31,7 +31,7 @@ const LampControl = () => {
   //const initialColor = colorKit.randomRgbColor().hex();
 
 
-  const { id } = useLocalSearchParams();
+  const { id, mode } = useLocalSearchParams();
 
   const fetchDevice = async () => {
     try {
@@ -39,6 +39,9 @@ const LampControl = () => {
       setDeviceName(device.name);
 
       const stateRes = await getDeviceStateById(id);
+      
+      console.log(stateRes.data)
+
       const colourData = stateRes.data?.data?.find((d: any) => d.code === 'colour_data_v2');
       if (colourData && colourData.value) {
         const hsvObj = JSON.parse(colourData.value);
@@ -94,17 +97,17 @@ const LampControl = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'Warm':
-        return <MyWarmColorPicker sharedColor={sharedColor}/>
+        return <MyWarmColorPicker deviceID ={id} sharedColor={sharedColor} mode={mode}/>
       case 'Color':
         return dbColor ? (
-          <MyColorPicker sharedColor={sharedColor} deviceID={id} key={dbColor} />
+          <MyColorPicker sharedColor={sharedColor} deviceID={id} mode={mode} key={dbColor} />
         ) : (
           <ActivityIndicator color="#fff" />
         );
       case 'Scene':
-        return <LampScene></LampScene>
+        return <LampScene deviceID={id} mode={mode}></LampScene>
       case 'Music':
-        return <MusicMode deviceID={id}></MusicMode>;
+        return <MusicMode deviceID={id} mode={mode}></MusicMode>;
       default:
         return null;
     }

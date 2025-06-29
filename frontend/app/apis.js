@@ -203,39 +203,17 @@ export async function handleRequest(topic, type, payload) {
   }
 }
 
-export const fetchDiscoveredDevices = async () => {
-  try {
-    const res = await axios.get(`${API_URL}/discovered`);
-    //console.log('Fetched devices:', res.data);
-    return res.data;
-  } catch (err) {
-    console.error('Error fetching devices:', err.response?.data || err.message);
-    return [];
-  }
-};
-
-
-// export const fetchTVDevices = async () => {
+// export const fetchDiscoveredDevices = async () => {
 //   try {
-//     const response = await axios.get(`${API_URL}/devices`);
-//     return response.data.filter(
-//       (device) => device.type === 'tv' && device.protocol === 'upnp'
-//     );
-//   } catch (error) {
-//     console.error('Error fetching devices:', error);
+//     const res = await axios.get(`${API_URL}/discovered`);
+//     //console.log('Fetched devices:', res.data);
+//     return res.data;
+//   } catch (err) {
+//     console.error('Error fetching devices:', err.response?.data || err.message);
 //     return [];
 //   }
 // };
 
-// export const fetchTVDeviceCommands = async (deviceId) => {
-//   try {
-//     const response = await axios.get(`${API_URL}/devicecommands?deviceId=${deviceId}`);
-//     return response.data;
-//   } catch (error) {
-//     console.error('Error fetching device commands:', error);
-//     return [];
-//   }
-// };
 
 export async function removeDeviceFromUser(userId, deviceId) {
   try {
@@ -324,17 +302,59 @@ export const loadNewProfilePic = async (deviceId, profile_pic) => {
   }
 }
 
+export async function uploadFile(localUri) {
+  // 1) Extract filename and mime type
+  const uriParts = localUri.split('/');
+  const name     = uriParts.pop();
+  const extension = name.split('.').pop()?.toLowerCase();
+  // You can extend this mapping as needed
+  const mimeType = extension === 'mov' ? 'video/quicktime' : 'video/mp4';
+
+  // 2) Build FormData
+  const formData = new FormData();
+  formData.append('file', {
+    uri: localUri,
+    name,
+    type: mimeType,
+  });
+
+  try {
+    // 3) POST with axios (do NOT set Content-Type header yourself,
+    //     axios + FormData will set the correct multipart boundary)
+    const res = await axios.post(
+      `${API_URL}/upload`,
+      formData,
+    );
+    // 4) unwrap and return the URL
+    return res.data.url;
+  } catch (err) {
+    console.error('Failed to upload file:', err.response?.data || err.message);
+    throw new Error('Upload failed');
+  }
+}
+
+
+export async function deleteMediaByUrl(mediaUrl) {
+  try {  
+    const urlObj = new URL(mediaUrl);
+    await axios.delete(`${urlObj.origin}${urlObj.pathname}`);
+    console.log('Deleted:', mediaUrl);
+  } catch (err) {
+    console.warn('Delete failed:', err.response?.data || err.message);
+  }
+}
+
 export default {
   saveDevice,
   handleRequest,
-  fetchDiscoveredDevices,
+  //fetchDiscoveredDevices,
   getDeviceById,
   getDeviceStateById,
-  //fetchTVDevices,
-  //fetchTVDeviceCommands, 
   deleteDevice,
   createUser,
   loadNewProfilePic, 
   getLoggedInUser,
-  getUserDevices
+  getUserDevices,
+  uploadFile,
+  deleteMediaByUrl
 };

@@ -11,26 +11,84 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import images from '@/constants/images';
+import { getDeviceById, getUserDevices } from './apis';
+import { router, useNavigation } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 
-type Device = { id: string; name: string; type: 'tv' | 'lamp'; };
+type Device = { _id: string; name: string; type: 'tv' | 'lamp'; };
+
+type ScenarioCommand = {
+  deviceId: string;
+  protocol: 'upnp' | 'tuya' | string;
+  address: string;
+  commands: Array<
+    | { name: string; parameters: Record<string, any> }         // UPnP style
+    | { code: string; value: any }                             // Tuya style
+  >;
+};
 
 const CreateScenario = () => {
   // --- state ---
-  const [allDevices] = useState<Device[]>([
-    { id: 'tv1', name: 'Living Room TV', type: 'tv' },
-    { id: 'lamp1', name: 'Bedroom Lamp', type: 'lamp' },
-  ]);
+  const [allDevices, setAllDevices] = useState<Device[]>([]);
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
+  const [scenarioCommands, setScenarioCommands] = useState<ScenarioCommand[]>([]);
   const [trigger, setTrigger] = useState<{
     daysOfWeek: number[];
     timeFrom?: Date;
     timeTo?: Date;
   }>({ daysOfWeek: [] });
+
   const [showFromPicker, setShowFromPicker] = useState(false);
   const [showToPicker, setShowToPicker] = useState(false);
 
+  const navigation = useNavigation()
   // --- helpers ---
+
+   useEffect(() => {
+    (async () => {
+      try {
+        const devices = await getUserDevices();  // however your API returns them
+        // if your API returns { data: Device[] }:
+        // setAllDevices(devices.data);
+        setAllDevices(devices);
+      } catch (e) {
+        console.error('Couldn’t load devices', e);
+      }
+    })();
+  }, []);
+
+  async function addScenarioCommand(
+    deviceId: string,
+    protocol: ScenarioCommand['protocol'],
+    raw: { name?: string; parameters?: any; code?: string; value?: any }
+  ) {
+    // fetch metadata once per device
+    const dev = await getDeviceById(deviceId);
+    const address = dev.metadata || 'unknown';
+
+    // build the commands array entry
+    let commandsEntry;
+    if (protocol === 'upnp') {
+      commandsEntry = { name: raw.name!, parameters: raw.parameters! };
+    } else {
+      commandsEntry = { code: raw.code!, value: raw.value! };
+    }
+
+    setScenarioCommands(cmds => [
+      ...cmds,
+      { deviceId, protocol, address, commands: [commandsEntry] },
+    ]);
+  }
+
+  const handleSaveScenario = () => {
+    console.log('Final scenario commands:', scenarioCommands);
+    // e.g. POST to your backend:
+    // axios.post('/api/scenarios', { name, trigger, commands: scenarioCommands });
+  };
+
+
+
   const toggleDevice = (id: string) =>
     setSelectedDeviceIds(ids =>
       ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]
@@ -65,11 +123,11 @@ const CreateScenario = () => {
         <View className="flex-row flex-wrap mb-6">
           {allDevices.map(dev => (
             <Pressable
-              key={dev.id}
-              onPress={() => toggleDevice(dev.id)}
+              key={dev._id}
+              onPress={() => toggleDevice(dev._id)}
               className={`
                 m-1 px-3 py-2 rounded-full
-                ${selectedDeviceIds.includes(dev.id)
+                ${selectedDeviceIds.includes(dev._id)
                   ? 'bg-blue-600'
                   : 'bg-neutral-700'}
               `}
@@ -79,57 +137,37 @@ const CreateScenario = () => {
           ))}
         </View>
 
-        {/* 3️⃣ Device Function Panels */}
-        {selectedDeviceIds.map(id => {
-          const dev = allDevices.find(d => d.id === id)!;
-          return (
-            <View
-              key={id}
-              className="mb-6 rounded-2xl overflow-hidden"
-            >
-              <BlurView
-                intensity={60}
-                tint="dark"
-                className="p-4"
-              >
-                {/* Header */}
-                <View className="flex-row items-center mb-4">
-                  <Image
-                    source={dev.type === 'tv' ? images.tv : images.newYork}
-                    className="w-10 h-10 mr-3"
-                    resizeMode="contain"
-                  />
-                  <Text className="text-white text-lg font-semibold">
-                    {dev.name}
-                  </Text>
-                </View>
+        {/* 3️⃣ Jump into per-device control */}
 
-                {/* Function buttons */}
-                <View className="flex-row flex-wrap justify-center">
-                  {dev.type === 'tv' ? (
-                    ['Power','Mute','Vol+','Vol-','Input'].map(cmd => (
-                      <Pressable
-                        key={cmd}
-                        className="m-1 w-20 h-12 bg-neutral-800/70 rounded-lg justify-center items-center"
-                      >
-                        <Text className="text-white">{cmd}</Text>
-                      </Pressable>
-                    ))
-                  ) : (
-                    ['On','Off','Dim+','Dim-'].map(cmd => (
-                      <Pressable
-                        key={cmd}
-                        className="m-1 w-20 h-12 bg-neutral-800/70 rounded-lg justify-center items-center"
-                      >
-                        <Text className="text-white">{cmd}</Text>
-                      </Pressable>
-                    ))
-                  )}
-                </View>
-              </BlurView>
-            </View>
+        {selectedDeviceIds.map(deviceId => {
+          const dev = allDevices.find(d => d._id === deviceId)!;
+          // pick the right route:
+          const screen = dev.type === 'tv' ? 'Remote3' : 'LampControl';
+
+          return (
+            <Pressable
+              key={dev._id}
+              onPress={() => router.push({
+                pathname: `/properties/${screen}`,
+                params: {
+                  id: deviceId,
+                  mode: "scenario",
+                  addScenarioCommand:{addScenarioCommand}
+                  // pass along any state or callback you need…
+                }
+              })}
+              className="mb-4 rounded-lg bg-neutral-700 p-4 flex-row items-center"
+            >
+              <Image
+                source={dev.type === 'tv' ? images.tv : images.newYork}
+                className="w-10 h-10 mr-3"
+              />
+              <Text className="text-white text-lg">{dev.name}</Text>
+              <Ionicons name="chevron-forward" size={20} color="#fff" style={{ marginLeft: 'auto' }}/>
+            </Pressable>
           );
         })}
+
 
         {/* 4️⃣ Trigger Selector */}
         <Text className="text-white mb-2">When to run</Text>
@@ -195,7 +233,7 @@ const CreateScenario = () => {
       </ScrollView>
 
       {/* 5️⃣ Save Button */}
-      <Pressable className="m-4 bg-blue-600 p-4 rounded-lg">
+      <Pressable className="m-4 bg-blue-600 p-4 rounded-lg" onPress={handleSaveScenario}>
         <Text className="text-center text-white font-bold text-lg">
           Save Scenario
         </Text>

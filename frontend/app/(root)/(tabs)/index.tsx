@@ -14,7 +14,7 @@ import {
 import { io, Socket } from "socket.io-client";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { deleteDevice, getUserDevices, getLoggedInUser, getDeviceStateById, handleRequest, getDeviceById } from "@/app/apis"; // your existing API helper
 import images from "../../../constants/images";
 import SwipeableRow from "@/components/SwipeableRow";
@@ -87,12 +87,12 @@ const HomeScreen = () => {
   }, []);
   
 
-  const TwoButtonAlert = () => {
-    Alert.alert("Add device", "Choose a device type:", [
-      { text: "Scan", onPress: () => router.navigate("/AddDevice") },
-      { text: "Cancel", onPress: () => console.log("Cancel"), style: "cancel" },
-    ]);
-  };
+  // const TwoButtonAlert = () => {
+  //   Alert.alert("Add device", "Choose a device type:", [
+  //     { text: "Scan", onPress: () => router.navigate("/AddDevice") },
+  //     { text: "Cancel", onPress: () => console.log("Cancel"), style: "cancel" },
+  //   ]);
+  // };
 
   const socketRef = useRef<Socket | null>(null);
 
@@ -264,7 +264,12 @@ const HomeScreen = () => {
           className="flex-row justify-between items-center bg-black bg-opacity-50 mx-5 my-2 rounded-xl p-4"
           onPress={() => router.navigate({
             pathname:screen,
-            params:{id:item._id},
+            params:
+              {
+                id:item._id,
+                mode: "live",
+                addScenarioCommand=
+              },
           })}
           disabled={!isOnline}
         >
