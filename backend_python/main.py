@@ -5,7 +5,7 @@ import paho.mqtt.client as mqtt
 from upnp_devices import scan_ssdp, device_exists
 from ble_scan import scan_ble
 from upnp_commands import get_upnp_actions
-from upnp_state import get_upnp_device_state
+from upnp_state import get_upnp_device_state, upnp_do_commands
 from testTuya.device import get_tuya_device, get_tuya_device_commands, get_tuya_device_status, get_device_state, do_command
 
 
@@ -205,14 +205,21 @@ async def _do_handle_command_action(raw: str, db_device_id: str):
     """
     try:
         data = json.loads(raw)
+        protocol = data.get("protocol")
         addr = data.get("address")
         commands = data.get("commands")
 
-        if not addr or not isinstance(commands, list):
+        if not protocol or not addr or not isinstance(commands, list):
             print("[ERROR] Invalid command payload: missing tuyaID or commands[]")
             return
+        if(protocol == "tuya"):
+            success = await do_command(addr, commands)
+        elif (protocol == "upnp"):
+            success = await upnp_do_commands(addr, commands)
+        else:
+            print(f"[ERROR] No handler for do_command")
+            return
 
-        success = await do_command(addr, commands)
         if not success:
             print(f"[ERROR] No payload returned for do_command")
             return
@@ -331,7 +338,7 @@ async def status_poll_loop():
      • Do the protocol-specific existence check
      • If the observed status ("online"/"offline") ≠ last_status[db_id], publish "<db_id>/<current>" to TOPIC_PUB3
     """
-    print("[Python] Starting 2-second polling loop for status checks.")
+    print("[Python] Starting every second polling loop for status checks.")
     while True:
         for dev in monitored_devices:
             db_id    = dev["db_id"]

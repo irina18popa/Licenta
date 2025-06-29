@@ -5,40 +5,40 @@ import sys
 from async_upnp_client.aiohttp import AiohttpSessionRequester
 from async_upnp_client.client_factory import UpnpFactory
 
-async def get_upnp_actions(device_url):
-    """
-    List all UPnP actions exposed by the device.
-    Returns:
-        dict: {"commands": [{"name": ..., "service": ..., "parameters": [...]}, ...]}
-    """
-    async with aiohttp.ClientSession() as session:
-        requester = AiohttpSessionRequester(session, with_sleep=True)
-        factory = UpnpFactory(requester)
+# async def get_upnp_actions(device_url):
+#     """
+#     List all UPnP actions exposed by the device.
+#     Returns:
+#         dict: {"commands": [{"name": ..., "service": ..., "parameters": [...]}, ...]}
+#     """
+#     async with aiohttp.ClientSession() as session:
+#         requester = AiohttpSessionRequester(session, with_sleep=True)
+#         factory = UpnpFactory(requester)
 
-        try:
-            device = await factory.async_create_device(device_url)
-        except Exception as e:
-            return {"error": f"Failed to load UPnP device: {e}"}
+#         try:
+#             device = await factory.async_create_device(device_url)
+#         except Exception as e:
+#             return {"error": f"Failed to load UPnP device: {e}"}
 
-        commands = []
-        for service in device.services.values():
-            for action in service.actions.values():
-                parameters = []
-                for arg in action.arguments:
-                    var = arg.related_state_variable
-                    parameters.append({
-                        "name": arg.name,
-                        "type": var.data_type,
-                        "enum": list(var.allowed_values) if var.allowed_values else [],
-                        "range": var._state_variable_info.type_info.allowed_value_range
-                    })
-                commands.append({
-                    "name": action.name,
-                    "service": service.service_type,
-                    "parameters": parameters
-                })
+#         commands = []
+#         for service in device.services.values():
+#             for action in service.actions.values():
+#                 parameters = []
+#                 for arg in action.arguments:
+#                     var = arg.related_state_variable
+#                     parameters.append({
+#                         "name": arg.name,
+#                         "type": var.data_type,
+#                         "enum": list(var.allowed_values) if var.allowed_values else [],
+#                         "range": var._state_variable_info.type_info.allowed_value_range
+#                     })
+#                 commands.append({
+#                     "name": action.name,
+#                     "service": service.service_type,
+#                     "parameters": parameters
+#                 })
 
-        return {"commands": commands}
+#         return {"commands": commands}
 
 
 
@@ -97,29 +97,93 @@ async def get_upnp_device_state(device_url):
         return {"state": entries}
 
 
-async def upnp_do_command(device_url:str, commands:list):
+async def upnp_do_commands(device_url:str, commands:list):
+    async with aiohttp.ClientSession() as session:
+        requester = AiohttpSessionRequester(session, with_sleep=True)
+        factory   = UpnpFactory(requester)
+
+        # load the device
+        try:
+            device = await factory.async_create_device(device_url)
+        except Exception as e:
+            print(f"[UPnP] Failed to load device: {e}")
+            return
+
+        for cmd in commands:
+            name   = cmd.get("name", "")
+            params = cmd.get("parameters", {})
+
+            # parse service_type and action
+            try:
+                service_type, action_name = name.rsplit(":", 1)
+            except ValueError:
+                print(f"[UPnP] Invalid command name: {name}")
+                continue
+
+            service = device.service(service_type)
+            if not service:
+                print(f"[UPnP] Service not found: {service_type}")
+                continue
+
+            try:
+                result = await service.async_call_action(action_name, **params)
+                # you can choose to print or ignore the result:
+                print(f"[UPnP] {action_name} succeeded → {result}")
+            except Exception as e:
+                print(f"[UPnP] {action_name} error → {e}")
+        
+        ret = await get_upnp_device_state(device_url)
+        #print(json.dumps(ret, indent=4))
+        return ret
 
 
-# async def main():
-#     """
-#     Usage:
-#       python script.py <device_description_url> [--actions]
-#     Default (no --actions): prints {{"state": [...]}} to stdout for MQTT payload.
-#     --actions: lists available commands
-#     """
-#     if len(sys.argv) < 2:
-#         print("Usage: python script.py <device_description_url> [--actions]")
-#         sys.exit(1)
+import asyncio
 
-#     device_url = sys.argv[1]
-#     mode = sys.argv[2] if len(sys.argv) > 2 else '--state'
+DEVICE_XML = "http://192.168.1.134:2870/dmr.xml"
+media_url = "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"
+COMMANDS = [
+    {
+        "name": "urn:schemas-upnp-org:service:RenderingControl:1:SetVolume",
+        "parameters": {
+            "InstanceID": 0,
+            "Channel": "Master",
+            "DesiredVolume": 5
+        }
+    },
+    {
+        "name": "urn:schemas-upnp-org:service:RenderingControl:1:SetMute",
+        "parameters": {
+            "InstanceID": 0,
+            "Channel": "Master",
+            "DesiredMute": False
+        }
+    },
+    # {
+    #     "name": "urn:schemas-upnp-org:service:AVTransport:1:SetAVTransportURI",
+    #     "parameters": {
+    #         "InstanceID": 0,
+    #         "CurrentURI": media_url,
+    #         "CurrentURIMetaData": ""
+    #     }
+    # },
+    {
+        "name": "urn:schemas-upnp-org:service:AVTransport:1:Play",
+        "parameters": {
+            "InstanceID": 0,
+            "Speed": "1"
+        }
+    },
+#    {
+#         "name": "urn:schemas-upnp-org:service:AVTransport:1:Stop",
+#         "parameters": {
+#             "InstanceID": 0
+#         }
+#     } 
+]
 
-#     if mode == '--actions':
-#         result = await get_upnp_actions(device_url)
-#     else:
-#         result = await get_device_state(device_url)
+async def main():
+    # No return; commands execute and print their own status
+    await upnp_do_commands(DEVICE_XML, COMMANDS)
 
-#     print(json.dumps(result, indent=4))
-
-# if __name__ == "__main__":
-#     asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
