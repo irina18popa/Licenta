@@ -9,8 +9,8 @@ from tuya_connector import (
     TUYA_LOGGER,
 )
 
-ACCESS_ID = "psuk4e4q5x57nxtuhj5m"
-ACCESS_KEY = "7896c8f95d034ea5bcbfc884880f8ccb"
+ACCESS_ID = "kqaave9x34ywys3udsq8"
+ACCESS_KEY = "97f69c04f69c4314947e639e96b0303d"
 API_ENDPOINT = "https://openapi.tuyaeu.com"
 MQ_ENDPOINT = "wss://mqe.tuyaeu.com:8285/"
 
@@ -106,6 +106,7 @@ async def get_tuya_device() -> list:
             "metadata": device_id
         })
 
+    print (output)
     return output
     #3️⃣ Print final combined JSON
     #print(json.dumps(output, indent=4))

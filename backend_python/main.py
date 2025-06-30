@@ -212,7 +212,7 @@ async def _do_handle_command_action(raw: str, db_device_id: str):
         if not protocol or not addr or not isinstance(commands, list):
             print("[ERROR] Invalid command payload: missing tuyaID or commands[]")
             return
-        if(protocol == "tuya"):
+        if (protocol == "tuya"):
             success = await do_command(addr, commands)
         elif (protocol == "upnp"):
             success = await upnp_do_commands(addr, commands)
