@@ -1,4 +1,5 @@
 import { getDeviceById, handleRequest } from '@/app/apis';
+import { useScenarioBuilder } from '@/app/contexts/ScenarioBuilderContext';
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import Animated, { useAnimatedStyle, SharedValue, runOnJS } from 'react-native-reanimated';
@@ -12,7 +13,8 @@ interface MyColorPickerInlineProps {
 
 const MyColorPicker = ({ sharedColor, deviceID, mode } : MyColorPickerInlineProps) => {
   const backgroundStyle = useAnimatedStyle(() => ({ backgroundColor: sharedColor.value }));
-
+  const { add } = useScenarioBuilder()
+  
 
   const handleColorChange = async (hex: string) => {
   try {
@@ -45,7 +47,13 @@ const MyColorPicker = ({ sharedColor, deviceID, mode } : MyColorPickerInlineProp
 
       await handleRequest(topic, type, JSON.stringify(fullPayload));
     } else {
-      await addScenarioCommand(deviceID, 'tuya', payload)
+      await add(deviceID, 'tuya', {code : 'colour_data_v2', 
+                                    value: {
+                                        h: hsv.h,
+                                        s: Math.round(hsv.s * 10),
+                                        v: Math.round(hsv.v * 10),
+                                      }
+      })
     }
     
   } catch (err) {

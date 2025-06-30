@@ -4,7 +4,6 @@ import axios from "axios";
 import mqtt from "mqtt"; 
 import http from "http";
 import { Server as SocketIOServer } from "socket.io";
-
 import { connectDB } from "./config/db.js";
 import userRoutes from "./routes/UserRoutes.js";
 import deviceRoutes from "./routes/DeviceRoutes.js";
@@ -16,6 +15,9 @@ import uploadRoutes from "./routes/UploadRoutes.js"
 import { saveDiscoveredDevice } from "./discoveredDevices.js";
 import path from "path";
 import { mediaRoutes } from "./routes/MediaRoutes.js";
+import scenarioRoutes from "./routes/ScenarioRoutes.js"
+import roomRoutes from "./routes/RoomRoutes.js"
+import { startTimeTriggerScheduler } from "./cronjobs/timeTriggers.js";
 
 dotenv.config();
 
@@ -305,11 +307,14 @@ app.use("/api/devicestate", deviceStateRoutes)
 app.use("/api/media", express.static(path.join(process.cwd(), 'media')));
 app.use("/api/media", mediaRoutes)
 app.use("/api/upload", uploadRoutes);
+app.use("/api/scenario", scenarioRoutes)
+app.use("/api/room", roomRoutes)
 
 connectDB()
   .then(() => {
     console.log("Database connected successfully.");
     //seedMqttTopics();
+    startTimeTriggerScheduler()
     httpServer.listen(port, () => console.log(`Server running on port ${port}`));
   })
   .catch((err) => {

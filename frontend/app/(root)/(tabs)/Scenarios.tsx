@@ -206,16 +206,18 @@
 // });
 
 // ScenariosCarousel.tsx
-import React, { useState, memo } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import {
-  Text,
   View,
-  Dimensions,
+  Text,
   TouchableOpacity,
   Image,
+  Dimensions,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { BlurView } from 'expo-blur';
 import Animated, {
   useSharedValue,
   useAnimatedScrollHandler,
@@ -226,139 +228,205 @@ import Animated, {
   FadeIn,
   FadeOut,
   clamp,
-  SharedValue,
 } from 'react-native-reanimated';
-import { BlurView } from 'expo-blur';
+import { Swipeable } from 'react-native-gesture-handler';
+import { getAllScenarios, deleteScenario } from '@/app/apis';
+import SwipeableRow from '@/components/SwipeableRow';
 import images from '../../../constants/images';
 
 const { width } = Dimensions.get('screen');
-const ITEM_SIZE  = width * 0.24;
-const SPACING    = 12;
+const ITEM_SIZE = width * 0.24;
+const SPACING = 12;
 const TOTAL_SIZE = ITEM_SIZE + SPACING;
 
 interface Scenario {
-  id: string;
+  _id: string;
   name: string;
-  devices: { name: string; actions: string[] }[];
-  trigger: string;
+  commands: {
+    deviceId: string;
+    protocol: string;
+    address: string;
+    commands: any[];
+  }[];
+  triggers: any[];
   bg?: any;
 }
-const SCENARIOS: Scenario[] = [
-  {
-    id: '1',
-    name: 'Morning',
-    bg: images.livingroom,
-    devices: [
-      { name: 'Coffee Maker', actions: ['On'] },
-      { name: 'TV',           actions: ['Volume 15','Play News'] },
-    ],
-    trigger: 'Every day @ 7:00',
-  },
-  {
-    id: '2',
-    name: 'Evening',
-    bg: images.bathroom,
-    devices: [
-      { name: 'Lamp', actions: ['Dim to 30%'] },
-      { name: 'TV',   actions: ['Off'] },
-    ],
-    trigger: 'Sunset',
-  },
-];
-const COUNT = SCENARIOS.length;
 
-interface CarouselItemProps {
-  scenario: Scenario;
-  index: number;
-  scrollX: SharedValue<number>;
-}
-const CarouselItem = memo(({ scenario, index, scrollX }: CarouselItemProps) => {
-  const style = useAnimatedStyle(() => ({
-    borderWidth: 4,
-    borderColor: interpolateColor(
-      scrollX.value,
-      [index - 1, index, index + 1],
-      ['transparent','#ff0000','transparent']
-    ),
-    transform: [{
-      translateY: interpolate(
+const CarouselItem = memo(
+  ({ scenario, index, scrollX }: { scenario: Scenario; index: number; scrollX: any }) => {
+    const style = useAnimatedStyle(() => ({
+      borderWidth: 4,
+      borderColor: interpolateColor(
         scrollX.value,
         [index - 1, index, index + 1],
-        [ITEM_SIZE/3, 0, ITEM_SIZE/3]
-      )
-    }],
-  }));
-  return (
-    <Animated.View style={[{ width: ITEM_SIZE, height: ITEM_SIZE, borderRadius: ITEM_SIZE/2, backgroundColor: '#333' }, style]} className="items-center justify-center overflow-hidden">
-      <Text className="text-white text-xs text-center px-1" numberOfLines={1}>
-        {scenario.name}
-      </Text>
-    </Animated.View>
-  );
-});
+        ['transparent', '#ff0000', 'transparent']
+      ),
+      transform: [
+        {
+          translateY: interpolate(
+            scrollX.value,
+            [index - 1, index, index + 1],
+            [ITEM_SIZE / 3, 0, ITEM_SIZE / 3]
+          ),
+        },
+      ],
+    }));
+
+    return (
+      <Animated.View
+        style={[
+          {
+            width: ITEM_SIZE,
+            height: ITEM_SIZE,
+            borderRadius: ITEM_SIZE / 2,
+            backgroundColor: '#333',
+          },
+          style,
+        ]}
+        className="items-center justify-center overflow-hidden"
+      >
+        <Text className="text-white text-xs text-center px-1" numberOfLines={1}>
+          {scenario.name}
+        </Text>
+      </Animated.View>
+    );
+  }
+);
 
 export default function ScenariosCarousel() {
   const scrollX = useSharedValue(0);
+  const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [active, setActive] = useState(0);
+  const [openRow, setOpenRow] = useState<Swipeable | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const fetched = await getAllScenarios();
+        setScenarios(fetched);
+      } catch (err) {
+        console.error('Failed to load scenarios:', err);
+      }
+    })();
+  }, []);
 
   const onScroll = useAnimatedScrollHandler({
-    onScroll: e => {
-      const pos = clamp(e.contentOffset.x / TOTAL_SIZE, 0, COUNT - 1);
+    onScroll: (e) => {
+      const pos = clamp(e.contentOffset.x / TOTAL_SIZE, 0, scenarios.length - 1);
       scrollX.value = pos;
       const idx = Math.round(pos);
       if (idx !== active) runOnJS(setActive)(idx);
     },
   });
 
-  if (!SCENARIOS[active]) return null;
-  const { name, devices, trigger, bg } = SCENARIOS[active];
+  const handleRowOpen = (ref: Swipeable) => {
+    if (openRow && openRow !== ref) {
+      openRow.close();
+    }
+    setOpenRow(ref);
+  };
+
+  const activeScenario = scenarios[active];
 
   return (
     <SafeAreaView className="flex-1 bg-black">
-      {/* full-screen blurred background */}
-      <BlurView intensity={100} tint="dark" className="absolute inset-0">
-        <Animated.Image
-          key={`bg-${active}`}
-          source={bg || images.background}
-          className="absolute inset-0 w-full h-full"
-          entering={FadeIn.duration(500)}
-          exiting={FadeOut.duration(500)}
-          blurRadius={10}
-        />
-      </BlurView>
+      <Image
+        source={images.background}
+        className="absolute w-full h-full"
+        blurRadius={10}
+      />
 
-      {/* detail card */}
-      <BlurView intensity={100} tint="dark" className="absolute top-20 left-5 right-5 p-6 rounded-2xl overflow-hidden">
-        <Text className="text-white text-2xl font-bold mb-3">{name}</Text>
-        {devices.map((d, i) => (
-          <View key={i} className="flex-row justify-between py-1">
-            <Text className="text-white font-semibold">{d.name}</Text>
-            <Text className="text-gray-300">{d.actions.join(', ')}</Text>
-          </View>
-        ))}
-        <Text className="text-gray-400 mt-4 italic">Trigger: {trigger}</Text>
-      </BlurView>
+      {/* Scenario card or empty state */}
+      <View className="absolute top-20 left-5 right-5">
+        {activeScenario ? (
+          <SwipeableRow
+            onSwipeableOpen={handleRowOpen}
+            onDelete={() =>
+              Alert.alert('Delete Scenario', 'Are you sure?', [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await deleteScenario(activeScenario._id);
+                      setScenarios((prev) =>
+                        prev.filter((s) => s._id !== activeScenario._id)
+                      );
+                      setActive(0);
+                    } catch (err) {
+                      Alert.alert('Error', 'Failed to delete scenario.');
+                    }
+                  },
+                },
+              ])
+            }
+          >
+            <Text>My Scenarios</Text>
+            <BlurView
+              intensity={100}
+              tint="dark"
+              className="p-6 rounded-2xl overflow-hidden"
+            >
+              <Text className="text-white text-2xl font-bold mb-3">
+                {activeScenario.name}
+              </Text>
 
-      {/* carousel */}
+              {activeScenario.commands.map((cmd, i) => (
+                <View key={i} className="flex-row justify-between py-1">
+                  <Text className="text-gray-300">
+                    {cmd.commands
+                      .map((c: any) => ('code' in c ? c.code : c.name))
+                      .join(', ')}
+                  </Text>
+                </View>
+              ))}
+              <Text className="text-gray-400 mt-4 italic">
+                Trigger:{' '}
+                {activeScenario.triggers
+                  .map((t) =>
+                    t.type === 'time' && t.timeFrom ? `@ ${t.timeFrom}` : t.type
+                  )
+                  .join(', ')}
+              </Text>
+            </BlurView>
+          </SwipeableRow>
+        ) : (
+          <BlurView
+            intensity={100}
+            tint="dark"
+            className="p-6 rounded-full items-center justify-center"
+          >
+            <Text className="text-white text-xl font-semibold mb-2">No scenarios found</Text>
+            <Text className="text-gray-300 text-sm text-center">Tap the + button below to create one</Text>
+          </BlurView>
+        )}
+      </View>
+
+      {/* Carousel */}
       <View className="absolute bottom-16 w-full items-center mb-60">
-        <Animated.FlatList
-          data={SCENARIOS}
-          keyExtractor={s => s.id}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          onScroll={onScroll}
-          scrollEventThrottle={16}
-          snapToInterval={TOTAL_SIZE}
-          decelerationRate="fast"
-          contentContainerStyle={{
-            paddingHorizontal: (width - ITEM_SIZE)/2,
-            gap: SPACING,
-          }}
-          style={{ height: ITEM_SIZE }}
-          renderItem={({ item, index }) => (
-            <CarouselItem scenario={item} index={index} scrollX={scrollX} />
-          )}
-        />
+        {scenarios.length > 0 && (
+          <Animated.FlatList
+            data={scenarios}
+            keyExtractor={(s) => s._id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            onScroll={onScroll}
+            scrollEventThrottle={16}
+            snapToInterval={TOTAL_SIZE}
+            decelerationRate="fast"
+            contentContainerStyle={{
+              paddingHorizontal: (width - ITEM_SIZE) / 2,
+              gap: SPACING,
+            }}
+            style={{ height: ITEM_SIZE }}
+            renderItem={({ item, index }) => (
+              <CarouselItem scenario={item} index={index} scrollX={scrollX} />
+            )}
+          />
+        )}
+
+        {/* Add button */}
         <TouchableOpacity
           className="absolute -bottom-8 bg-white/60 rounded-full items-center justify-center"
           style={{ width: ITEM_SIZE, height: ITEM_SIZE }}
@@ -370,3 +438,4 @@ export default function ScenariosCarousel() {
     </SafeAreaView>
   );
 }
+

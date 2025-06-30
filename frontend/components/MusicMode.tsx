@@ -6,6 +6,7 @@ import { Audio } from 'expo-av';
 import Svg, { Polyline } from 'react-native-svg';
 import { Text } from 'react-native';
 import { getDeviceById, handleRequest } from '@/app/apis';
+import { useScenarioBuilder } from '@/app/contexts/ScenarioBuilderContext';
 
 
 interface MusicModeProps {
@@ -15,43 +16,58 @@ interface MusicModeProps {
 
 
 const MusicMode = ({ deviceID, mode } : MusicModeProps) => {
+  const { add } = useScenarioBuilder()
 
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [waveform, setWaveform] = useState<number[]>([]);
   const interval = useRef<NodeJS.Timer | null>(null);
 
-    const sendMusicModeCommand = async (deviceID: string) => {
-      try {
-          const payload = {
-            commands: [
-              {
-              code: 'work_mode',
-              value: 'music',
-              }
-            ],
-          };
-
-          if (mode === 'live')
-          {
-            const res = await getDeviceById(deviceID);
-            const fullPayload = {
-              protocol: 'tuya',
-              address: res.metadata || 'unknown',
-              ...payload
-            };
-
-            const topic = `app/devices/${deviceID}/do_command/in`;
-            const type = 'publish';
-
-            await handleRequest(topic, type, JSON.stringify(fullPayload));
-          } else {
-            await addScenarioCommand(deviceID, 'tuya', payload)
-          }
-
-      } catch (err) {
-        console.warn('Failed to send work_mode command:', err);
+  useEffect(() => {
+    const autoSetScenarioCommand = async () => {
+      if (mode === 'scenario') {
+        try {
+          await add(deviceID, 'tuya', { code: 'work_mode', value: 'music' });
+        } catch (err) {
+          console.warn('Failed to stash music mode command:', err);
+        }
       }
     };
+
+    autoSetScenarioCommand();
+  }, [mode, deviceID]);
+
+
+
+  const sendMusicModeCommand = async (deviceID: string) => {
+    try {
+        const payload = {
+          commands: [
+            {
+            code: 'work_mode',
+            value: 'music',
+            }
+          ],
+        };
+
+        if (mode === 'live')
+        {
+          const res = await getDeviceById(deviceID);
+          const fullPayload = {
+            protocol: 'tuya',
+            address: res.metadata || 'unknown',
+            ...payload
+          };
+
+          const topic = `app/devices/${deviceID}/do_command/in`;
+          const type = 'publish';
+
+          await handleRequest(topic, type, JSON.stringify(fullPayload));
+        }
+
+    } catch (err) {
+      console.warn('Failed to send work_mode command:', err);
+    }
+  };
 
 
 

@@ -344,6 +344,70 @@ export async function deleteMediaByUrl(mediaUrl) {
   }
 }
 
+export async function createScenario(payload){
+  try {
+    await axios.post(`${API_URL}/scenario`, payload)
+    console.log('Scenario created')
+  } catch (error) {
+    console.error('Creating scenario failed:', error.response?.data || error.message);
+  }
+}
+
+export async function getAllScenarios() {
+  try {
+    const res = await axios.get(`${API_URL}/scenario`);
+    return res.data;
+  } catch (error) {
+    console.error('Fetching scenario failed:', error.response?.data || error.message);
+  }
+}
+
+// apis/index.ts or similar
+export async function deleteScenario(id) {
+  try {
+    const res = await axios.delete(`${API_URL}/scenario/${id}`);
+    return res.data;
+  } catch (error) {
+    console.error('Deleting scenario failed:', error.response?.data || error.message);
+  }
+}
+
+export async function createRoom(payload){
+  try {
+    await axios.post(`${API_URL}/room`, payload)
+    console.log('Room created')
+  } catch (error) {
+    console.error('Creating scenario failed:', error.response?.data || error.message);
+  }
+}
+
+export async function getAllRooms() {
+  try {
+    const res = await axios.get(`${API_URL}/room`);
+    return res.data;
+  } catch (error) {
+    console.error('Fetching rooms failed:', error.response?.data || error.message);
+  }
+}
+
+export async function getRoomById(id) {
+  try {
+    const res = await axios.get(`${API_URL}/room/${id}`);
+    return res.data;
+  } catch (err) {
+    console.error(`Failed to fetch room ${id}:`, err.response?.data || err.message);
+    throw new Error('Failed to fetch room');
+  }
+}
+
+export async function deleteRoom(roomId) {
+  try {  
+    console.log(roomId)
+  } catch (err) {
+    console.warn('Delete failed:', err.response?.data || err.message);
+  }
+}
+
 export default {
   saveDevice,
   handleRequest,
@@ -356,5 +420,10 @@ export default {
   getLoggedInUser,
   getUserDevices,
   uploadFile,
-  deleteMediaByUrl
+  deleteMediaByUrl,
+  createScenario,
+  getAllScenarios,
+  getAllRooms,
+  getRoomById,
+  deleteRoom
 };

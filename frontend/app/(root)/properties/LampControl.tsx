@@ -12,6 +12,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import LampScene from '@/components/LampScene';
 import MusicMode from '@/components/MusicMode';
+import { useScenarioBuilder } from '@/app/contexts/ScenarioBuilderContext';
 
 
 type Tab = 'Warm' | 'Color' | 'Scene' | 'Music';
@@ -32,6 +33,7 @@ const LampControl = () => {
 
 
   const { id, mode } = useLocalSearchParams();
+
 
   const fetchDevice = async () => {
     try {

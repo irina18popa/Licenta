@@ -4,6 +4,7 @@ import "./global.css"
 import {useFonts} from "expo-font"
 import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { ScenarioBuilderProvider } from "./contexts/ScenarioBuilderContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -26,5 +27,11 @@ export default function RootLayout() {
 
   if(!fontsLoaded) return null
 
-  return <GestureHandlerRootView><Stack screenOptions={{headerShown:false}} /></GestureHandlerRootView>;
+return (
+    <GestureHandlerRootView>
+      <ScenarioBuilderProvider>
+        <Stack screenOptions={{ headerShown: false }} />
+      </ScenarioBuilderProvider>
+    </GestureHandlerRootView>
+  );
 }

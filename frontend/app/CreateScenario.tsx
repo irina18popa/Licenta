@@ -6,14 +6,16 @@ import {
   ScrollView,
   Image,
   TextInput,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import images from '@/constants/images';
-import { getDeviceById, getUserDevices } from './apis';
+import { createScenario, getDeviceById, getUserDevices } from './apis';
 import { router, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useScenarioBuilder } from './contexts/ScenarioBuilderContext';
 
 
 type Device = { _id: string; name: string; type: 'tv' | 'lamp'; };
@@ -29,16 +31,27 @@ type ScenarioCommand = {
 };
 
 const CreateScenario = () => {
+
+  const { commands, reset } = useScenarioBuilder()
+
   // --- state ---
   const [allDevices, setAllDevices] = useState<Device[]>([]);
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
   const [scenarioCommands, setScenarioCommands] = useState<ScenarioCommand[]>([]);
+ 
   const [trigger, setTrigger] = useState<{
-    daysOfWeek: number[];
-    timeFrom?: Date;
-    timeTo?: Date;
-  }>({ daysOfWeek: [] });
+      daysOfWeek: number[];
+      timeFrom?: Date;
+      timeTo?: Date;
+      weatherCondition?: string;
+      temperature?: number;
+      temperatureCondition?: 'above' | 'below';
+    }>({
+      daysOfWeek: [],
+    });
 
+
+  const [scenarioName, setScenarioName] = useState('');
   const [showFromPicker, setShowFromPicker] = useState(false);
   const [showToPicker, setShowToPicker] = useState(false);
 
@@ -57,6 +70,7 @@ const CreateScenario = () => {
       }
     })();
   }, []);
+
 
   async function addScenarioCommand(
     deviceId: string,
@@ -81,18 +95,72 @@ const CreateScenario = () => {
     ]);
   }
 
-  const handleSaveScenario = () => {
-    console.log('Final scenario commands:', scenarioCommands);
+  const handleSaveScenario = async() => {
+    //console.log('Final scenario commands:', JSON.stringify(commands, null, 2));
     // e.g. POST to your backend:
     // axios.post('/api/scenarios', { name, trigger, commands: scenarioCommands });
+    try {
+      if (!scenarioName.trim()) {
+        Alert.alert('Validation Error', 'Please enter a scenario name.');
+        return;
+      }
+      if (!commands.length) {
+        Alert.alert('Validation Error', 'No commands selected for this scenario.');
+        return;
+      }
+
+      const payload = {
+        name: scenarioName, // You’ll need to store this from the input
+        triggers: [
+          {
+            type: 'time',
+            timeFrom: trigger.timeFrom?.toTimeString().slice(0,5),
+            ...(trigger.timeTo ? { timeTo: trigger.timeTo.toTimeString().slice(0, 5) } : {}),
+            daysOfWeek: trigger.daysOfWeek,
+          },
+          ...(trigger.weatherCondition
+            ? [{ type: 'weather', weatherCondition: trigger.weatherCondition }]
+            : []),
+          ...(trigger.temperature != null && trigger.temperatureCondition
+            ? [{
+                type: 'temperature',
+                temperature: trigger.temperature,
+                temperatureCondition: trigger.temperatureCondition,
+              }]
+            : []),
+        ],
+        commands: commands,
+      };
+  // console.log(JSON.stringify(payload, null, 2));
+      await createScenario(payload)
+      reset()
+      router.replace('/Scenarios')
+    } catch (error) {
+      console.error('Failed to save scenario:', error);
+      Alert.alert('Error', 'Failed to save scenario.');
+    }
   };
 
 
 
-  const toggleDevice = (id: string) =>
-    setSelectedDeviceIds(ids =>
-      ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]
-    );
+  const toggleDevice = async (id: string) => {
+    const isSelected = selectedDeviceIds.includes(id);
+    if (isSelected) {
+      setSelectedDeviceIds(ids => ids.filter(x => x !== id));
+    } else {
+      try {
+        const dev = await getDeviceById(id);
+        if (dev.status !== 'online') {
+          alert(`${dev.name} is offline`);
+        }
+      } catch {
+        alert('Failed to check device status');
+      }
+      setSelectedDeviceIds(ids => [...ids, id]);
+    }
+  };
+
+
 
   const formatHHMM = (d: Date) =>
     d.toTimeString().slice(0,5);
@@ -116,6 +184,8 @@ const CreateScenario = () => {
           placeholder="Scenario Name"
           placeholderTextColor="#aaa"
           className="text-white text-xl border-b border-neutral-700 pb-2 mb-6"
+          value={scenarioName}
+          onChangeText={setScenarioName}
         />
 
         {/* 2️⃣ Device Picker */}
@@ -151,8 +221,7 @@ const CreateScenario = () => {
                 pathname: `/properties/${screen}`,
                 params: {
                   id: deviceId,
-                  mode: "scenario",
-                  addScenarioCommand:{addScenarioCommand}
+                  mode: "scenario"
                   // pass along any state or callback you need…
                 }
               })}
@@ -230,6 +299,51 @@ const CreateScenario = () => {
             }}
           />
         )}
+        {/* Weather Condition Input */}
+      <Text className="text-white mb-1">Weather Condition (e.g. Rain, Clear)</Text>
+      <TextInput
+        placeholder="Weather Condition"
+        placeholderTextColor="#aaa"
+        className="text-white text-base border-b border-neutral-700 pb-1 mb-4"
+        onChangeText={(val) =>
+          setTrigger(t => ({ ...t, weatherCondition: val }))
+        }
+      />
+
+      {/* Temperature Trigger */}
+      <Text className="text-white mb-1">Temperature Trigger</Text>
+      <View className="flex-row items-center space-x-2 mb-6">
+        <TextInput
+          keyboardType="numeric"
+          placeholder="Value (°C)"
+          placeholderTextColor="#aaa"
+          className="flex-1 text-white border-b border-neutral-700 pb-1"
+          onChangeText={(val) =>
+            setTrigger(t => ({ ...t, temperature: parseFloat(val) }))
+          }
+        />
+        <Pressable
+          className={`px-3 py-2 rounded-full ${
+            trigger.temperatureCondition === 'above' ? 'bg-blue-600' : 'bg-neutral-700'
+          }`}
+          onPress={() =>
+            setTrigger(t => ({ ...t, temperatureCondition: 'above' }))
+          }
+        >
+          <Text className="text-white">Above</Text>
+        </Pressable>
+        <Pressable
+          className={`px-3 py-2 rounded-full ${
+            trigger.temperatureCondition === 'below' ? 'bg-blue-600' : 'bg-neutral-700'
+          }`}
+          onPress={() =>
+            setTrigger(t => ({ ...t, temperatureCondition: 'below' }))
+          }
+        >
+          <Text className="text-white">Below</Text>
+        </Pressable>
+      </View>
+
       </ScrollView>
 
       {/* 5️⃣ Save Button */}

@@ -7,6 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams } from 'expo-router';
 import { getDeviceById, getDeviceStateById, handleRequest, uploadFile, deleteMediaByUrl } from '@/app/apis';
 import * as FileSystem from 'expo-file-system';
+import { useScenarioBuilder } from '@/app/contexts/ScenarioBuilderContext';
 
 
 
@@ -17,7 +18,8 @@ const RemoteControlScreen: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [videoUri, setVideoUri] = useState<string | null>(null);
 
-  const { id, mode } = useLocalSearchParams();
+  const { id, mode } = useLocalSearchParams<{ id: string; mode?: 'live' | 'scenario' }>()
+  const { add } = useScenarioBuilder()
 
     
   useEffect(() => {
@@ -84,7 +86,7 @@ const RemoteControlScreen: React.FC = () => {
       await sendCommand(cmd.name, cmd.parameters);
     } else {
       // stash for later
-      addScenarioCommand(id, 'upnp', { name: cmd.name, parameters: cmd.parameters });
+      await add(id, 'upnp', { name: cmd.name, parameters: cmd.parameters });
     }
 
     setVideoUri(mediaUrl);
@@ -114,7 +116,7 @@ const RemoteControlScreen: React.FC = () => {
       await sendCommand(cmd.name, cmd.parameters);
     } else {
       // stash for later
-      addScenarioCommand(id, 'upnp', { name: cmd.name, parameters: cmd.parameters });
+      add(id, 'upnp', { name: cmd.name, parameters: cmd.parameters });
     }
     //showToast(`Volume: ${newVol}`);
   };
@@ -134,7 +136,7 @@ const RemoteControlScreen: React.FC = () => {
       await sendCommand(cmd.name, cmd.parameters);
     } else {
       // stash for later
-      addScenarioCommand(id, 'upnp', { name: cmd.name, parameters: cmd.parameters });
+      add(id, 'upnp', { name: cmd.name, parameters: cmd.parameters });
     }
     //showToast(target ? 'Muted' : 'Unmuted');
   };
@@ -166,7 +168,7 @@ const RemoteControlScreen: React.FC = () => {
       await sendCommand(cmd.name, cmd.parameters);
     } else {
       // stash for later
-      addScenarioCommand(id, 'upnp', { name: cmd.name, parameters: cmd.parameters });
+      add(id, 'upnp', { name: cmd.name, parameters: cmd.parameters });
     }
     // flip the UI state
     setIsPlaying(prev => !prev);

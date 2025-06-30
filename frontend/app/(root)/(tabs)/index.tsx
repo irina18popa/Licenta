@@ -11,11 +11,11 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-import { io, Socket } from "socket.io-client";
+import { io, protocol, Socket } from "socket.io-client";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect, useRouter } from "expo-router";
-import { deleteDevice, getUserDevices, getLoggedInUser, getDeviceStateById, handleRequest, getDeviceById } from "@/app/apis"; // your existing API helper
+import { useRouter } from "expo-router";
+import { deleteDevice, getUserDevices, getLoggedInUser, getDeviceStateById, handleRequest, getDeviceById, getAllRooms, deleteRoom } from "@/app/apis"; // your existing API helper
 import images from "../../../constants/images";
 import SwipeableRow from "@/components/SwipeableRow";
 import { Swipeable } from "react-native-gesture-handler";
@@ -45,16 +45,13 @@ interface Weather {
 }
 
 interface Room {
-  id: string;
+  _id: string;
   name: string;
-  image: any;
+  image: string; // use string if it's a URL
+  devices: string[];
 }
 
-const rooms: Room[] = [
-  { id: "1", name: "Living room", image: images.livingroom },
-  { id: "2", name: "Bedroom 1", image: images.bedroom },
-  // …etc.
-];
+
 
 const SOCKET_SERVER_URL = 'http://192.168.1.135:3000';
 
@@ -69,6 +66,10 @@ const HomeScreen = () => {
   const [openRow, setOpenRow] = useState<Swipeable | null>(null);
   const [userName, setUserName] = useState(''); // State to store user's name
   const [profileImage, setProfileImage] = useState('');
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [loadingRooms, setLoadingRooms] = useState(true);
+  const [roomError, setRoomError] = useState<string | null>(null);
+
 
   const router = useRouter();
 
@@ -83,8 +84,22 @@ const HomeScreen = () => {
       }
     };
 
+    const fetchRooms = async () => {
+      try {
+        const data = await getAllRooms();
+        setRooms(data); // Make sure each item has `_id`, `name`, `image`
+      } catch (err: any) {
+        setRoomError(err.message || "Failed to fetch rooms");
+      } finally {
+        setLoadingRooms(false);
+      }
+    };
+
     fetchUserInfo();
-  }, []);
+    fetchRooms(); // ← add this
+
+  }, [])
+
   
 
   // const TwoButtonAlert = () => {
@@ -173,7 +188,8 @@ const HomeScreen = () => {
       const tuyaID = res?.metadata || 'unknown';
 
       const fullPayload = {
-        tuyaID,
+        protocol:'tuya',
+        address:tuyaID,
         ...payload
       };
       // Topic & type
@@ -198,15 +214,57 @@ const HomeScreen = () => {
     }
   };
 
-  const renderRoom = ({ item }: { item: Room }) => (
-    <TouchableOpacity
-      className="mr-4 w-60"
-      onPress={() => router.navigate("/properties/Remote2")}
-    >
-      <Image source={item.image} className="w-full h-72 rounded-xl mb-2" />
-      <Text className="text-lg font-bold text-gray">{item.name}</Text>
-    </TouchableOpacity>
-  );
+
+  const handleDeleteRoom = async (roomId: string) => {
+    Alert.alert("Delete Room", "Are you sure you want to delete this room?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await deleteRoom(roomId); // <- Make sure this API exists
+            setRooms((prev) => prev.filter((r) => r._id !== roomId));
+          } catch (err) {
+            Alert.alert("Error", "Failed to delete room");
+          }
+        },
+      },
+    ]);
+  };
+
+
+  const renderRoom = ({ item }: { item: Room | { isAddCard: true } }) => {
+    if ('isAddCard' in item) {
+      return (
+        <TouchableOpacity
+          onPress={() => router.navigate("/CreateRoom")}
+          className="mr-4 w-60 h-72 rounded-xl overflow-hidden justify-center items-center"
+        >
+          <View className="absolute inset-0 bg-white/10 rounded-xl backdrop-blur-sm items-center justify-center">
+            <Ionicons name="add" size={40} color="white" />
+            <Text className="text-white mt-2 text-lg font-medium">Create Room</Text>
+          </View>
+        </TouchableOpacity>
+      );
+    }
+
+    return (
+      <TouchableOpacity
+        className="mr-4 w-60"
+        onPress={() =>
+          router.navigate({
+            pathname: "/properties/Room",
+            params: { roomId: item._id },
+          })
+        }
+        onLongPress={() => handleDeleteRoom(item._id)}
+      >
+        <Image source={images[item.image] || images.background} className="w-full h-72 rounded-xl mb-2" />
+        <Text className="text-lg font-bold text-gray">{item.name}</Text>
+      </TouchableOpacity>
+    );
+  };
 
   const renderDevice = ({ item }: { item: DeviceWithState }) => {
     
@@ -268,7 +326,6 @@ const HomeScreen = () => {
               {
                 id:item._id,
                 mode: "live",
-                addScenarioCommand=
               },
           })}
           disabled={!isOnline}
@@ -410,11 +467,14 @@ const HomeScreen = () => {
 
       {/* Content */}
       {selectedTab === "Rooms" ? (
+        
         <FlatList
-          data={rooms}
+          data={[...rooms, { isAddCard: true }]}
           horizontal
           showsHorizontalScrollIndicator={false}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item, index) =>
+              "isAddCard" in item ? `add-${index}` : item._id
+            }          
           renderItem={renderRoom}
           contentContainerStyle={{ paddingVertical: 20, paddingLeft: 20 }}
         />
@@ -430,6 +490,7 @@ const HomeScreen = () => {
       ) : (
         <FlatList
           data={devices}
+          extraData={devices}
           showsVerticalScrollIndicator={false}
           keyExtractor={(item) => item._id}
           renderItem={renderDevice}
