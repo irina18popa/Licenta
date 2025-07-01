@@ -10,7 +10,11 @@
     "newArchEnabled": true,
     "ios": {
       "infoPlist": {
-        "NSCameraUsageDescription": "This app uses the camera to scan barcodes on event tickets."
+        "NSCameraUsageDescription": "This app uses the camera to scan barcodes on event tickets.",
+        "NSMicrophoneUsageDescription": "This app uses microphone to record audio.",
+        "UIBackgroundModes": [
+          "audio"
+        ]
       },
       "supportsTablet": true
     },
@@ -50,6 +54,12 @@
         }
       ],
       [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone."
+        }
+      ],
+      [
         "expo-font",
         {
           "fonts": [
@@ -63,7 +73,8 @@
         }
       ],
       "expo-secure-store",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true

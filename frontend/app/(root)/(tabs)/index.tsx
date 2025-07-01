@@ -18,9 +18,10 @@ import { useRouter } from "expo-router";
 import { deleteDevice, getUserDevices, getLoggedInUser, getDeviceStateById, handleRequest, getDeviceById, getAllRooms, deleteRoom } from "@/app/apis"; // your existing API helper
 import images from "../../../constants/images";
 import SwipeableRow from "@/components/SwipeableRow";
-import { Swipeable } from "react-native-gesture-handler";
+import { Pressable, ScrollView, Swipeable } from "react-native-gesture-handler";
 import * as SecureStore from 'expo-secure-store';
 
+  const apiKey = '3911749f8e26e530fd89787c88f2723d';
 
 
 interface RawDevice {
@@ -39,6 +40,7 @@ interface DeviceWithState extends RawDevice {
 
 
 interface Weather {
+  name: string
   main: { temp: number; feels_like: number; humidity: number };
   weather: Array<{ description: string; icon: string }>;
   wind: { speed: number };
@@ -58,6 +60,7 @@ const SOCKET_SERVER_URL = 'http://192.168.1.135:3000';
 
 const HomeScreen = () => {
   const [weather, setWeather] = useState<Weather | null>(null);
+  const [city, setCity] = useState('');
   const [searchText, setSearchText] = useState("");
   const [selectedTab, setSelectedTab] = useState<"Rooms" | "Devices">("Rooms");
   const [devices, setDevices] = useState<DeviceWithState[]>([]);
@@ -69,6 +72,7 @@ const HomeScreen = () => {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loadingRooms, setLoadingRooms] = useState(true);
   const [roomError, setRoomError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
 
   const router = useRouter();
@@ -173,6 +177,58 @@ const HomeScreen = () => {
       socketRef.current?.disconnect();
     };
   }, []);
+
+
+//   useEffect(() => {
+//      const fetchWeather = async () => {
+//       if (!city) return Alert.alert('Please enter a city name!');
+//         setLoading(true);
+//         setWeather(null);
+//         try {
+//           const res = await fetch(
+//             `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(
+//               city
+//             )}&appid=${apiKey}&units=metric`
+//           );
+//           const data = await res.json();
+//           if (res.ok && data.weather && data.main) {
+//             setWeather(data);
+//           } else {
+//             setWeather(null);
+//             Alert.alert('Not found', data.message || 'Could not find that city!');
+//           }
+//         } catch (e) {
+//           Alert.alert('Network error', String(e));
+//         }
+//         setLoading(false);
+//     };
+//     fetchWeather();
+// }, []);
+
+
+    const fetchWeather = async () => {
+      if (!city) return Alert.alert("Please enter a city name!");
+      setLoading(true);
+      setWeather(null);
+      try {
+        const res = await fetch(
+          `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(
+            city
+          )}&appid=${apiKey}&units=metric`
+        );
+        const data = await res.json();
+        if (res.ok && data.weather && data.main) {
+          setWeather(data);
+        } else {
+          setWeather(null);
+          Alert.alert("Not found", data.message || "Could not find that city!");
+        }
+      } catch (e) {
+        Alert.alert("Network error", String(e));
+      }
+      setLoading(false);
+    };
+
 
 
   const handleToggleSwitch = async (deviceId: string, on: boolean) => {
@@ -360,6 +416,12 @@ const HomeScreen = () => {
 
   return (
     <SafeAreaView className="flex-1 bg-black">
+       <ScrollView
+          className="flex-1"
+          contentContainerStyle={{ flexGrow: 1 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
       <Image
         source={images.background}
         className="absolute w-full h-full"
@@ -404,31 +466,67 @@ const HomeScreen = () => {
         <Ionicons name="options-outline" size={20} color="#9CA3AF" />
       </View>
 
+      {/* <TouchableOpacity
+        onPress={() => router.navigate('/TestVoiceAssistant')}
+        className="mx-5 mt-3 bg-blue-600 py-3 rounded-lg items-center"
+      >
+        <Text className="text-white font-bold text-base">Voice Assistant</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => router.navigate('/DemoTTS')}
+        className="mx-5 mt-3 bg-blue-600 py-3 rounded-lg items-center"
+      >
+        <Text className="text-white font-bold text-base">Demo TTS</Text>
+      </TouchableOpacity> */}
       {/* Weather Card (unchanged) */}
-      {weather && (
-        <View className="flex-row bg-blue-500 mx-5 rounded-2xl p-5 items-center">
-          <Image
-            source={{
-              uri: `https://openweathermap.org/img/wn/${weather.weather[0].icon}@4x.png`,
-            }}
-            className="w-20 h-20"
-          />
-          <View className="ml-4 flex-1">
-            <Text className="text-4xl font-bold text-white">
-              {Math.round(weather.main.temp)}°
-            </Text>
-            <Text className="text-sm text-white mb-1">
-              Feels like {Math.round(weather.main.feels_like)}°
-            </Text>
-            <Text className="text-base text-white capitalize">
-              {weather.weather[0].description}
-            </Text>
-            <Text className="text-xs text-blue-200 mt-2">
-              Wind: {weather.wind.speed} m/s   Humidity: {weather.main.humidity}%
-            </Text>
+      <View className="p-4">
+        <TextInput
+          className="border border-blue-300 rounded-xl px-4 py-3 text-lg mb-2 bg-white"
+          placeholder="Enter city name"
+          value={city}
+          onChangeText={setCity}
+          autoCapitalize="words"
+          placeholderTextColor="#aaa"
+        />
+        <TouchableOpacity
+          className={`bg-blue-300 py-3 rounded-xl items-center mb-5 ${loading ? 'opacity-10' : ''}`}
+          onPress={fetchWeather}
+          disabled={loading}
+        >
+          <Text className="text-white font-bold text-lg">
+            {loading ? "Loading..." : "Get Weather"}
+          </Text>
+        </TouchableOpacity>
+        {weather && weather.weather && weather.weather[0] && (
+          <View className="flex-row bg-blue-500 mx-2 rounded-2xl p-5 items-center">
+            <Image
+              source={{
+                uri: `https://openweathermap.org/img/wn/${weather.weather[0].icon}@4x.png`,
+              }}
+              className="w-20 h-20"
+            />
+            <View className="ml-4 flex-1">
+              <Text className="text-4xl font-bold text-white">
+                {Math.round(weather.main.temp)}°
+              </Text>
+              <Text className="text-sm text-white mb-1">
+                Feels like {Math.round(weather.main.feels_like)}°
+              </Text>
+              <Text className="text-base text-white capitalize">
+                {weather.weather[0].description}
+              </Text>
+              <Text className="text-xs text-blue-200 mt-2">
+                Wind: {weather.wind.speed} m/s   Humidity: {weather.main.humidity}%
+              </Text>
+              <Text className="text-lg text-white font-bold mt-2">
+                {weather.name}
+              </Text>
+            </View>
           </View>
-        </View>
-      )}
+        )}
+    </View>
+
 
       {/* Tabs */}
       <View className="flex-row bg-white rounded-lg p-1 mt-5 w-40 mx-auto">
@@ -479,15 +577,18 @@ const HomeScreen = () => {
           contentContainerStyle={{ paddingVertical: 20, paddingLeft: 20 }}
         />
       ) : loadingDevices ? (
+        
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#fff" />
-          <Text className="text-white mt-2">Loading devices…</Text>
+          <Text className="text-white mt-2">Loading...</Text>
         </View>
       ) : deviceError ? (
+
         <View className="flex-1 justify-center items-center">
           <Text className="text-red-500">Error: {deviceError}</Text>
         </View>
       ) : (
+
         <FlatList
           data={devices}
           extraData={devices}
@@ -495,10 +596,13 @@ const HomeScreen = () => {
           keyExtractor={(item) => item._id}
           renderItem={renderDevice}
           contentContainerStyle={{ paddingVertical: 20 }}
+          style={{flex:1}}
         />
       )}
+      </ScrollView>
     </SafeAreaView>
   );
 };
+
 
 export default HomeScreen;
