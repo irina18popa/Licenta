@@ -17,6 +17,7 @@ import path from "path";
 import { mediaRoutes } from "./routes/MediaRoutes.js";
 import scenarioRoutes from "./routes/ScenarioRoutes.js"
 import roomRoutes from "./routes/RoomRoutes.js"
+import voiceRecordRoute from "./routes/GetVoiceRecordRoute.js"
 import { startTimeTriggerScheduler } from "./cronjobs/timeTriggers.js";
 
 dotenv.config();
@@ -40,43 +41,27 @@ const mqttClient = mqtt.connect(MQTT_BROKER);
 // MQTT Topics
 const DISCOVER_OUT = "app/discover/out";
 
-const detectDeviceType = (deviceName) => {
-  const name = deviceName.toLowerCase();
-  if (name.includes("light")) return "light";
-  if (name.includes("plug")) return "plug";
-  if (name.includes("tv")) return "tv";
-  if (name.includes("ir")) return "ir";
-  return "sensor";
-};
-
 // 1) Listen for Socket.IO “startScan” and publish to DISCOVER_IN
 io.on("connection", (socket) => {
-  console.log(`📡 Socket connected: ${socket.id}`);
+  //console.log(`📡 Socket connected: ${socket.id}`);
   socket.on("startScan", async() => {
 
     try {
-      // 1) Call your own GET /devices endpoint to fetch all devices
       const resp = await axios.get(`${process.env.LOCALHOST_URL}/devices`);
-      //    (Adjust URL/port as needed.)
       const devices = resp.data; 
       // e.g. [ { protocol: "mqtt", id: "123" }, { protocol: "http", id: "xyz" }, … ]
 
       // 2) Map them into ["mqtt/123", "http/xyz", …]
       const payloadList = devices.map((d) => {
         if (d.protocol === "upnp") {
-          // use uuid for UPnP devices
           return `${d.protocol}/${d.uuid}`;
         } else if (d.protocol === "ble" && d.manufacturer === "TUYA") {
-          // use manufacturer/metadata for BLE devices from TUYA
           return `${d.manufacturer}/${d.metadata}`;
         } else {
-          // fallback to protocol/_id
-          return `${d.protocol}/${d._id}`;
+          return 
         }
       });
-      // 3) Serialize into JSON (or whatever string format you need)
       const payloadString = JSON.stringify(payloadList);
-      //making the discover_in topic
       const res = await axios.get(`${process.env.LOCALHOST_URL}/mqtttopic/device/null/discover/in`)
       const basetopic = res.data
 
@@ -90,14 +75,11 @@ io.on("connection", (socket) => {
         (err) => {
           if (err) {
             console.error("❌ Failed to publish DISCOVER_IN:", err);
-            // Optionally emit an error back to the client:
             socket.emit("scanFailed", { error: err.message });
           } else {
             console.log(
               `✔ Published device list`, payloadString);
-            // Optionally confirm back to the client:
-            //socket.emit("scanPublished", { devices: payloadList });
-          }
+         }
         }
       );
     } catch (err) {
@@ -159,7 +141,11 @@ mqttClient.on("connect", async () => {
     const allTopics = getRes.data;
 
     for (const topic of allTopics) {
-      if (topic.deviceId && topic.action === "status" && topic.direction === "in") {
+      if (
+        topic.deviceId &&
+        (topic.action === "status" || topic.action === "state") &&
+        topic.direction === "in"
+      ) {
         const fullTopic = `${topic.basetopic}/${topic.deviceId}/${topic.action}/${topic.direction}`;
 
         if (topic.payload) {
@@ -192,13 +178,11 @@ mqttClient.on("message", async (topic, message) => {
 
   
   if (topic === DISCOVER_OUT) {
-    // DISCOVER_OUT emits an array of discovered-device objects
-    //console.log(`Received DISCOVER_OUT: ${message.toString()}`);
     const device = JSON.parse(message.toString());
 
     const tempDevice = {
       name: device.deviceName,
-      type: detectDeviceType(device.deviceName),
+      type: device.type,
       manufacturer: device.manufacturer || "unknown",
       macAddress: device.MAC || "unknown",
       ipAddress: device.IP || "unknown",
@@ -242,10 +226,18 @@ mqttClient.on("message", async (topic, message) => {
 
     (async () => {
       try {
-        await axios.put(
-          `${process.env.LOCALHOST_URL}/devices/${deviceId}`,
-          { status: statusText }        // ← Use statusText, not newStatus
-        );
+        if(statusText !== "online" && statusText !== "offline")
+        {
+          await axios.put(
+            `${process.env.LOCALHOST_URL}/devices/${deviceId}`,
+            { metadata: statusText }  
+          );
+        }else{
+          await axios.put(
+            `${process.env.LOCALHOST_URL}/devices/${deviceId}`,
+            { status: statusText }        // ← Use statusText, not newStatus
+          );
+        }
         io.emit("device:status_changed", { deviceId, newStatus: statusText });
       } catch(err) {
         console.error("Failed to update status:", err.response?.data || err.message);
@@ -254,8 +246,6 @@ mqttClient.on("message", async (topic, message) => {
     })();
   }
 
-
-  //aici trebuie sa fac getall in devicestate si daca nu exista deviceid sa creez entry
 
   if (action === "state") {
     try {
@@ -309,6 +299,7 @@ app.use("/api/media", mediaRoutes)
 app.use("/api/upload", uploadRoutes);
 app.use("/api/scenario", scenarioRoutes)
 app.use("/api/room", roomRoutes)
+app.use("/api/voicerecord", voiceRecordRoute)
 
 connectDB()
   .then(() => {

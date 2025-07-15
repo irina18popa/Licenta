@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -12,14 +12,15 @@ import {
   Alert,
 } from "react-native";
 import { io, protocol, Socket } from "socket.io-client";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { FontAwesome, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { deleteDevice, getUserDevices, getLoggedInUser, getDeviceStateById, handleRequest, getDeviceById, getAllRooms, deleteRoom } from "@/app/apis"; // your existing API helper
 import images from "../../../constants/images";
 import SwipeableRow from "@/components/SwipeableRow";
-import { Pressable, ScrollView, Swipeable } from "react-native-gesture-handler";
+import { ScrollView, Swipeable } from "react-native-gesture-handler";
 import * as SecureStore from 'expo-secure-store';
+import VoiceAssistantModal from "@/app/VoiceAssistantModal";
 
   const apiKey = '3911749f8e26e530fd89787c88f2723d';
 
@@ -61,7 +62,6 @@ const SOCKET_SERVER_URL = 'http://192.168.1.135:3000';
 const HomeScreen = () => {
   const [weather, setWeather] = useState<Weather | null>(null);
   const [city, setCity] = useState('');
-  const [searchText, setSearchText] = useState("");
   const [selectedTab, setSelectedTab] = useState<"Rooms" | "Devices">("Rooms");
   const [devices, setDevices] = useState<DeviceWithState[]>([]);
   const [loadingDevices, setLoadingDevices] = useState(true);
@@ -73,6 +73,8 @@ const HomeScreen = () => {
   const [loadingRooms, setLoadingRooms] = useState(true);
   const [roomError, setRoomError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+
 
 
   const router = useRouter();
@@ -103,15 +105,6 @@ const HomeScreen = () => {
     fetchRooms(); // ← add this
 
   }, [])
-
-  
-
-  // const TwoButtonAlert = () => {
-  //   Alert.alert("Add device", "Choose a device type:", [
-  //     { text: "Scan", onPress: () => router.navigate("/AddDevice") },
-  //     { text: "Cancel", onPress: () => console.log("Cancel"), style: "cancel" },
-  //   ]);
-  // };
 
   const socketRef = useRef<Socket | null>(null);
 
@@ -178,6 +171,12 @@ const HomeScreen = () => {
     };
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      fetchDevices()
+    }, [])
+  )
+
 
 //   useEffect(() => {
 //      const fetchWeather = async () => {
@@ -233,15 +232,28 @@ const HomeScreen = () => {
 
   const handleToggleSwitch = async (deviceId: string, on: boolean) => {
     try {
-      // Build Tuya-style payload
-      const payload = {
-        commands: [
-          { code: "switch_led", value: on }
-        ]
-      };
-      // Get device details for tuyaID/metadata
       const res = await getDeviceById(deviceId); // You might have a getDeviceById(deviceId) instead if needed
       const tuyaID = res?.metadata || 'unknown';
+      const tuyaType = res.type
+      let payload = {}
+      // Build Tuya-style payload
+      if(tuyaType === "bulb")
+      {
+        payload = {
+          commands: [
+            { code: "switch_led", value: on }
+          ]
+        };  
+      }
+      else if(tuyaType === "plug")
+      {
+        payload = {
+          commands: [
+            { code: "switch_1", value: on }
+          ]
+        };  
+      }
+        
 
       const fullPayload = {
         protocol:'tuya',
@@ -317,7 +329,7 @@ const HomeScreen = () => {
         onLongPress={() => handleDeleteRoom(item._id)}
       >
         <Image source={images[item.image] || images.background} className="w-full h-72 rounded-xl mb-2" />
-        <Text className="text-lg font-bold text-gray">{item.name}</Text>
+        <Text className="text-lg font-bold text-white/60 ml-4">{item.name}</Text>
       </TouchableOpacity>
     );
   };
@@ -342,17 +354,20 @@ const HomeScreen = () => {
 
     let screen = "";
     switch (item.type) {
-      case "lamp":
+      case "bulb":
         screen = "/properties/LampControl";
         break;
-      case "tv":
+      case "media":
         screen = "/properties/Remote3";
         break;
+      case "sensor_th":
+        screen = "/properties/THControl";
+        break;
       default:
-        screen = "/properties/LampControl";
+        screen = "/properties/WaterFlood";
     }
 
-    const isTuya = item.manufacturer === "TUYA"
+    const isSwitchable = item.type === "bulb" || item.type === "plug"
 
     return (
       <SwipeableRow
@@ -400,7 +415,7 @@ const HomeScreen = () => {
               </View>
             </View>
           </View>
-          {isTuya && 
+          {isSwitchable && 
           (<Switch
             value={item.isOn}
             onValueChange={(val) => handleToggleSwitch(item._id, val)}
@@ -416,17 +431,18 @@ const HomeScreen = () => {
 
   return (
     <SafeAreaView className="flex-1 bg-black">
+      <Image
+        source={images.background}
+        className="absolute w-full h-full"
+        blurRadius={10}
+      />
        <ScrollView
           className="flex-1"
           contentContainerStyle={{ flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-      <Image
-        source={images.background}
-        className="absolute w-full h-full"
-        blurRadius={10}
-      />
+      
       <StatusBar barStyle="light-content" />
 
       {/* Header */}
@@ -451,23 +467,17 @@ const HomeScreen = () => {
           <TouchableOpacity onPress={() => router.navigate("/AddDevice")}>
             <MaterialCommunityIcons name="plus" size={24} color="#4B5563" />
           </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowVoiceModal(true)}>
+            <FontAwesome name="microphone" size={24} color="#4B5563" />
+          </TouchableOpacity>
+          {showVoiceModal && (
+            <VoiceAssistantModal onClose={() => setShowVoiceModal(false)} />
+          )}
         </View>
       </View>
 
-      {/* Search */}
-      <View className="flex-row bg-white mx-5 my-5 rounded-lg p-1 items-center">
-        <Ionicons name="search-outline" size={20} color="#9CA3AF" />
-        <TextInput
-          className="flex-1 mx-3 text-base"
-          placeholder="Search something"
-          value={searchText}
-          onChangeText={setSearchText}
-        />
-        <Ionicons name="options-outline" size={20} color="#9CA3AF" />
-      </View>
-
-      {/* <TouchableOpacity
-        onPress={() => router.navigate('/TestVoiceAssistant')}
+      <TouchableOpacity
+        onPress={() => router.navigate('/VoiceAssistantModal')}
         className="mx-5 mt-3 bg-blue-600 py-3 rounded-lg items-center"
       >
         <Text className="text-white font-bold text-base">Voice Assistant</Text>
@@ -478,7 +488,7 @@ const HomeScreen = () => {
         className="mx-5 mt-3 bg-blue-600 py-3 rounded-lg items-center"
       >
         <Text className="text-white font-bold text-base">Demo TTS</Text>
-      </TouchableOpacity> */}
+      </TouchableOpacity>
       {/* Weather Card (unchanged) */}
       <View className="p-4">
         <TextInput

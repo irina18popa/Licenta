@@ -98,12 +98,12 @@ export const createMQTTTopic = async (req, res) => {
     const { basetopic:parsedBasetopic, deviceId: parsedDeviceId, action, direction } = parsed;
     const finalDeviceId = parsedDeviceId ?? explicitDeviceId;
 
-    console.log("🔍 Checking for existing topic with:", {
-      basetopic:parsedBasetopic,
-      deviceId: { $eq: finalDeviceId },  // Ensures exact match for `null`
-      action,
-      direction
-    });
+    // console.log("🔍 Checking for existing topic with:", {
+    //   basetopic:parsedBasetopic,
+    //   deviceId: { $eq: finalDeviceId },  // Ensures exact match for `null`
+    //   action,
+    //   direction
+    // });
 
     const exists = await MQTTTopic.findOne({
       basetopic:parsedBasetopic, 

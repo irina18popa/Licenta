@@ -15,7 +15,9 @@ import kitchen from "@/assets/images/kitchen.jpg"
 import bathroom from "@/assets/images/bathroom.jpg"
 import tv from "@/assets/images/tv.png"
 import plus from "@/assets/images/plus.png"
-
+import lamp from "@/assets/images/lamp.png"
+import th_sensor from "@/assets/images/th_sensor.png"
+import flood_sensor from "@/assets/images/flood_sensor.png"
 
 
 export default {
@@ -35,5 +37,8 @@ export default {
   kitchen, 
   bathroom,
   tv,
-  plus
+  plus,
+  lamp,
+  th_sensor,
+  flood_sensor
 };

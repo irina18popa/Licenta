@@ -13,13 +13,14 @@ import { useScenarioBuilder } from '@/app/contexts/ScenarioBuilderContext';
 
 const RemoteControlScreen: React.FC = () => {
 
+  const { id, mode } = useLocalSearchParams<{ id: string; mode?: 'live' | 'scenario' }>()
+  const { add } = useScenarioBuilder()
+
   const [volume, setVolume] = useState<number>(0);
+  const [name, setName] = useState<string>('');
   const [isMuted, setIsMuted] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [videoUri, setVideoUri] = useState<string | null>(null);
-
-  const { id, mode } = useLocalSearchParams<{ id: string; mode?: 'live' | 'scenario' }>()
-  const { add } = useScenarioBuilder()
 
     
   useEffect(() => {
@@ -27,6 +28,9 @@ const RemoteControlScreen: React.FC = () => {
       try {
         const resp = await getDeviceStateById(id);
         const arr  = resp.data || [];
+
+        const resp2 = await getDeviceById(id);
+        setName(resp2.name)
 
         // find the two entries
         const volEntry = arr.find(e => e.code.endsWith(':GetVolume'));
@@ -45,7 +49,7 @@ const RemoteControlScreen: React.FC = () => {
   const sendCommand = async (commandName: string, params: Record<string, any>) => {
     const dev     = await getDeviceById(id);
     const protocol = 'upnp'
-    const address = dev.metadata || 'unknown';
+    const address = dev.uuid || 'unknown';
     const payload = { protocol, address, commands: [{ name: commandName, parameters: params }] };
     const topic   = `app/devices/${id}/do_command/in`;
     await handleRequest(topic, 'publish', JSON.stringify(payload));
@@ -187,7 +191,7 @@ const RemoteControlScreen: React.FC = () => {
 
       {/* Title & Underline */}
       <View className="items-center mt-2">
-        <Text className="text-white text-lg font-semibold">JVC TV</Text>
+        <Text className="text-white text-lg font-semibold">{name}</Text>
         <View className="w-16 h-0.5 bg-white mt-1" />
       </View>
 

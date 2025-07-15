@@ -31,7 +31,16 @@ export function ScenarioBuilderProvider({ children }: { children: ReactNode }) {
     raw: { name?: string; parameters?: any; code?: string; value?: any }
   ) => {
     const dev = await getDeviceById(deviceId)
-    const address = dev.metadata || 'unknown'
+    let address = ''
+
+    if(dev.protocol === "upnp")
+    {
+      address = dev.uuid || 'unknown'
+    }
+    else
+    {
+      address = dev.metadata || 'unknown'
+    }
 
     let entry
     if (protocol === 'upnp') {

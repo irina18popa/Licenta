@@ -17,49 +17,49 @@ const MyColorPicker = ({ sharedColor, deviceID, mode } : MyColorPickerInlineProp
   
 
   const handleColorChange = async (hex: string) => {
-  try {
-    const hsv = colorKit.HSV(hex).object();
+    try {
+      const hsv = colorKit.HSV(hex).object();
 
-    const payload = {
-      commands: [
-        {
-          code: 'colour_data_v2',
-          value: {
-            h: hsv.h,
-            s: Math.round(hsv.s * 10),
-            v: Math.round(hsv.v * 10),
+      const payload = {
+        commands: [
+          {
+            code: 'colour_data_v2',
+            value: {
+              h: hsv.h,
+              s: Math.round(hsv.s * 10),
+              v: Math.round(hsv.v * 10),
+            }
           }
-        }
-      ],
-    };
-
-    if (mode === 'live')
-    {
-      const res = await getDeviceById(deviceID);
-      const fullPayload = {
-        protocol: 'tuya',
-        address: res.metadata || 'unknown',
-        ...payload
+        ],
       };
 
-      const topic = `app/devices/${deviceID}/do_command/in`;
-      const type = 'publish';
+      if (mode === 'live')
+      {
+        const res = await getDeviceById(deviceID);
+        const fullPayload = {
+          protocol: 'tuya',
+          address: res.metadata || 'unknown',
+          ...payload
+        };
 
-      await handleRequest(topic, type, JSON.stringify(fullPayload));
-    } else {
-      await add(deviceID, 'tuya', {code : 'colour_data_v2', 
-                                    value: {
-                                        h: hsv.h,
-                                        s: Math.round(hsv.s * 10),
-                                        v: Math.round(hsv.v * 10),
-                                      }
-      })
+        const topic = `app/devices/${deviceID}/do_command/in`;
+        const type = 'publish';
+
+        await handleRequest(topic, type, JSON.stringify(fullPayload));
+      } else {
+        await add(deviceID, 'tuya', {code : 'colour_data_v2', 
+                                      value: {
+                                          h: hsv.h,
+                                          s: Math.round(hsv.s * 10),
+                                          v: Math.round(hsv.v * 10),
+                                        }
+        })
+      }
+      
+    } catch (err) {
+      console.warn('Failed to send color payload:', err);
     }
-    
-  } catch (err) {
-    console.warn('Failed to send color payload:', err);
-  }
-};
+  };
 
   const onColorSelect = (col: ColorFormatsObject) => {
     'worklet';

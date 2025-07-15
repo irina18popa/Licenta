@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const DeviceSchema = new mongoose.Schema({
   name: { type: String, required: true},
-  type: { type: String, enum: ["light", "sensor", "plug", "tv", "ir"], required: true },
+  type: { type: String, required: true },
   manufacturer: String,
   macAddress: {type: String, unique: true},
   ipAddress: String,

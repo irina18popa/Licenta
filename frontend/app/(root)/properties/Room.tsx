@@ -34,7 +34,7 @@ interface DeviceWithState extends RawDevice {
   stateId?: string | null;
 }
 
-const DeviceListScreen = () => {
+const Room = () => {
   const { roomId } = useLocalSearchParams();
   const [roomName, setRoomName] = useState("");
   const [devices, setDevices] = useState<DeviceWithState[]>([]);
@@ -198,4 +198,4 @@ const DeviceListScreen = () => {
   );
 };
 
-export default DeviceListScreen;
+export default Room;

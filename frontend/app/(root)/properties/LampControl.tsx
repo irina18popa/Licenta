@@ -119,7 +119,7 @@ const LampControl = () => {
     <SafeAreaView className="flex-1 bg-black">
       <Image source={images.background} className="absolute w-full h-full" blurRadius={10} />
       <View className="items-center mt-16">
-        <Image source={images.tv} className="w-64 h-40" resizeMode="contain" />
+        <Image source={images.lamp} className="w-64 h-40" resizeMode="contain" />
       </View>
 
       <View className="items-center mt-2 ml-8 flex-row justify-center gap-x-2">

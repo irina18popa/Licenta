@@ -9,12 +9,12 @@ import * as ImagePicker from 'expo-image-picker';
 import { loadNewProfilePic } from '@/app/apis';
 
 const menuItems = [
-  { key: 'guestQR', label: 'GuestQR', icon: <Ionicons name="qr-code-outline" size={20} /> },
-  { key: 'profile', label: 'Profile', icon: <Feather name="user" size={20} /> },
-  { key: 'family', label: 'Family', icon: <Ionicons name="people-outline" size={20} /> },
-  { key: 'notification', label: 'Notification', icon: <Ionicons name="notifications-outline" size={20} /> },
-  { key: 'appearance', label: 'Appearance Settings', icon: <Feather name="moon" size={20} /> },
-  { key: 'help', label: 'Help Center', icon: <Feather name="info" size={20} /> },
+  // { key: 'guestQR', label: 'GuestQR', icon: <Ionicons name="qr-code-outline" size={20} /> },
+  // { key: 'profile', label: 'Profile', icon: <Feather name="user" size={20} /> },
+  // { key: 'family', label: 'Family', icon: <Ionicons name="people-outline" size={20} /> },
+  // { key: 'notification', label: 'Notification', icon: <Ionicons name="notifications-outline" size={20} /> },
+  // { key: 'appearance', label: 'Appearance Settings', icon: <Feather name="moon" size={20} /> },
+  // { key: 'help', label: 'Help Center', icon: <Feather name="info" size={20} /> },
   { key: 'logout', label: 'Logout', icon: <Feather name="log-out" size={20} />, color: 'text-red-500' },
 ];
 

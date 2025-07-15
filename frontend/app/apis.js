@@ -3,15 +3,15 @@ import * as SecureStore from 'expo-secure-store';
 
 const API_URL = 'http://192.168.1.135:3000/api';
 
-// export async function getDevices() {
-//   try {
-//     const res = await axios.get(`${API_URL}/devices`);
-//     return res.data;
-//   } catch (err) {
-//     console.error('Failed to fetch devices:', err.response?.data || err.message);
-//     throw new Error('Failed to fetch devices');
-//   }
-// }
+export async function getDevices() {
+  try {
+    const res = await axios.get(`${API_URL}/devices`);
+    return res.data;
+  } catch (err) {
+    console.error('Failed to fetch devices:', err.response?.data || err.message);
+    throw new Error('Failed to fetch devices');
+  }
+}
 
 // Helper to get the logged-in user from SecureStore
 export async function getLoggedInUser() {
@@ -77,34 +77,32 @@ export async function saveMqttTopic(savedDevice) {
     const { _id, protocol, metadata, manufacturer, uuid, status } = savedDevice;
     const baseUrl = `${API_URL}/mqtttopic`;
 
-    let param1 = "", param2 = "", param3 = "";
+    let param1 = "", param2 = "";
 
     // Device-specific status topic
     if (protocol === "upnp") {
       param1 = protocol;
-      param2 = metadata;
-      param3 = uuid;
-
-      await axios.post(baseUrl, {
-        basetopic: `app/devices/${_id}/status/in`,
-        payload: `${param1}/${param3}/${status}`,
-        type: "publish",
-        qos: 1,
-      });
+      param2 = uuid;
 
     } else if (manufacturer === "TUYA") {
       param1 = manufacturer;
       param2 = metadata;
+    }
 
-      await axios.post(baseUrl, {
+    // Common topics
+    await axios.post(baseUrl, {
         basetopic: `app/devices/${_id}/status/in`,
         payload: `${param1}/${param2}/${status}`,
         type: "publish",
         qos: 1,
       });
-    }
 
-    // Common topics
+    await axios.post(baseUrl, {
+      basetopic: `app/devices/${_id}/state/in`,
+      payload: `${param1}/${param2}`,
+      type: "publish",
+      qos: 1,
+    });
 
     await axios.post(baseUrl, {
         basetopic: `app/devices/${_id}/status/out`,
@@ -122,13 +120,6 @@ export async function saveMqttTopic(savedDevice) {
      await axios.post(baseUrl, {
       basetopic: `app/devices/${_id}/commands/out`,
       type: "subscribe",
-      qos: 1,
-    });
-
-    await axios.post(baseUrl, {
-      basetopic: `app/devices/${_id}/state/in`,
-      payload: `${param1}/${param2}`,
-      type: "publish",
       qos: 1,
     });
 
@@ -170,6 +161,11 @@ export async function saveDevice(deviceData) {
     const res3 = await axios.get(`${API_URL}/mqtttopic/device/${savedDevice._id}/state/in`)
     const topic2 = res3.data
     await handleRequest(`${topic2.basetopic}/${topic2.deviceId}/${topic2.action}/${topic2.direction}`, `${topic2.type}`, `${topic2.payload}`)
+
+    const res4 = await axios.get(`${API_URL}/mqtttopic/device/${savedDevice._id}/status/in`)
+    const topic3 = res4.data
+    await handleRequest(`${topic3.basetopic}/${topic3.deviceId}/${topic3.action}/${topic3.direction}`, `${topic3.type}`, `${topic3.payload}`)
+
 
     const user = await SecureStore.getItemAsync('user');
     if (user) {
@@ -383,6 +379,7 @@ export async function createRoom(payload){
 
 export async function getAllRooms() {
   try {
+    console.log("aici")
     const res = await axios.get(`${API_URL}/room`);
     return res.data;
   } catch (error) {
@@ -408,6 +405,22 @@ export async function deleteRoom(roomId) {
   }
 }
 
+export async function sendVoiceRecord(formData) {
+  try {
+    const response = await fetch(`${API_URL}/voicerecord`, {
+      method: "POST",
+      body: formData,
+      // DO NOT set any headers!
+    });
+    const data = await response.json();
+    console.log('record sent');
+    return { data }; // to match axios' response.data structure
+  } catch (error) {
+    console.error('Creating record failed:', error.message);
+    throw error;
+  }
+}
+
 export default {
   saveDevice,
   handleRequest,
@@ -425,5 +438,6 @@ export default {
   getAllScenarios,
   getAllRooms,
   getRoomById,
-  deleteRoom
+  deleteRoom,
+  sendVoiceRecord
 };
