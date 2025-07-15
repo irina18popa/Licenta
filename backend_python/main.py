@@ -2,7 +2,7 @@ import json
 import asyncio
 import paho.mqtt.client as mqtt
 
-from upnp_devices import scan_ssdp, device_exists
+from upnp_full import scan_ssdp, get_upnp_location_for_uuid
 from ble_scan import scan_ble
 from upnp_commands import get_upnp_actions
 from upnp_state import get_upnp_device_state, upnp_do_commands
@@ -17,18 +17,9 @@ MQTT_BROKER  = "127.0.0.1"
 TOPIC_PUB    = "app/discover/out"
 TOPIC_PUB2 = "app/devices/+/+/out"
 
-# TOPIC_PUB2   = "app/devices/commands/out"
-# TOPIC_PUB3   = "app/devices/status/out"
-# TOPIC_PUB4 = "app/devices/state/out"
-# TOPIC_PUB5 = "app/devices/do_command/out"
-
 
 TOPIC_SUB    = "app/discover/in"
 TOPIC_SUB2 = "app/devices/+/+/in"
-# TOPIC_SUB2   = "app/devices/commands/in"
-# TOPIC_SUB3   = "app/devices/status/in"
-# TOPIC_SUB4 = "app/devices/state/in"
-# TOPIC_SUB5 = "app/devices/do_command/in"
 
 # ───────────────────────────────────────────────────────────────────────
 
@@ -38,9 +29,14 @@ monitored_devices = []
 
 # last_status maps db_id → "online" or "offline"
 last_status = {}
+last_state = {}
+
+last_upnp_location = {}  # uuid → location_url
 
 # Will hold our asyncio Task for the 2-second polling loop
 polling_task = None
+state_polling_task = None
+
 
 # The asyncio event loop (created in main and used throughout)
 event_loop: asyncio.AbstractEventLoop = None
@@ -50,7 +46,7 @@ mqtt_client = mqtt.Client()
 
 # ───────────────────────────────────────────────────────────────────────
 def parse_topic(topic):
-    print(f"aici {topic}")
+    #print(f"{topic}")
     parts = topic.split("/")
     if len(parts) == 5 and parts[0] == "app" and parts[1] == "devices" and parts[4] == "in":
         return {
@@ -68,13 +64,8 @@ def on_connect(client, userdata, flags, rc):
     print(f"[Python] Connected to MQTT broker (code {rc})")
     client.subscribe(TOPIC_SUB)  
     client.subscribe(TOPIC_SUB2)
-
-    # client.subscribe(TOPIC_SUB2)
-    # client.subscribe(TOPIC_SUB3)    # Clear retained on TOPIC_PUB once
-    # client.subscribe(TOPIC_SUB4)
-    # client.subscribe(TOPIC_SUB5)
+    # Clear retained on TOPIC_PUB once
     client.publish(TOPIC_PUB, payload=None, retain=True)
-    # client.publish(TOPIC_PUB2, payload=None, retain=True)
 
 
 def on_message(client, userdata, msg):
@@ -84,7 +75,7 @@ def on_message(client, userdata, msg):
     """
     topic = msg.topic
     payload = msg.payload.decode().strip()
-
+    #print(f"***{topic}***{payload}")
     parsed = parse_topic(topic)
 
     if parsed:
@@ -167,23 +158,11 @@ async def discover_devices(upnp_filter: set = None, tuya_filter: set = None):
         tuya_filter = set()
 
     # 1) Scan each protocol
-    upnp_devices = await scan_ssdp()
-    ble_devices  = await scan_ble()
+    upnp_devices = list((await scan_ssdp()).values())
+    ble_devices = await scan_ble()
     tuya_devices = await get_tuya_device()
-
-    # 2) Exclude any UPnP devices whose uuid is in upnp_filter
-    filtered_upnp = [
-        d for d in upnp_devices
-        if d.get("uuid") not in upnp_filter
-    ]
-
-    # 3) Exclude any TUYA devices whose metadata is in tuya_filter
-    filtered_tuya = [
-        d for d in tuya_devices
-        if d.get("metadata") not in tuya_filter
-    ]
-
-    # 4) Return combined list: (filtered UPnP) + (all BLE) + (filtered TUYA)
+    filtered_upnp = [d for d in upnp_devices if d.get("uuid") not in upnp_filter]
+    filtered_tuya = [d for d in tuya_devices if d.get("metadata") not in tuya_filter]
     return filtered_upnp + ble_devices + filtered_tuya
 
 
@@ -215,7 +194,11 @@ async def _do_handle_command_action(raw: str, db_device_id: str):
         if (protocol == "tuya"):
             success = await do_command(addr, commands)
         elif (protocol == "upnp"):
-            success = await upnp_do_commands(addr, commands)
+            # Find latest location from uuid
+            location_url, _ = await get_upnp_location_for_uuid(addr)
+            if not location_url:
+                return 
+            success = await upnp_do_commands(location_url, commands)
         else:
             print(f"[ERROR] No handler for do_command")
             return
@@ -243,8 +226,11 @@ async def _do_handle_commands(raw: str, db_device_id:str):
         protocol, addr = raw.split("/", 1)
         protocol = protocol.lower()
         if protocol == "upnp":
-            DEVICE_DESC_URL = f"{addr}"
-            actions = await get_upnp_actions(DEVICE_DESC_URL)
+            # Find latest location from uuid
+            location_url, _ = await get_upnp_location_for_uuid(addr)
+            if not location_url:
+                return 
+            actions = await get_upnp_actions(location_url)
 
         elif protocol in ("ble", "tuya"):
             actions = await get_tuya_device_commands(addr)
@@ -263,38 +249,74 @@ async def _do_handle_commands(raw: str, db_device_id:str):
 
 async def _do_handle_state(raw: str, db_device_id:str):
     """
-    Parses 'protocol/addr' and fetches device state (only for Tuya),
-    then publishes it to MQTT topic TOPIC_PUB3.
+    Add/update device to polling list for state. Do NOT publish state here!
     """
+    global state_polling_task
+
     try:
-        protocol, addr = raw.split("/", 1)
-        protocol = protocol.lower()
+        protocol, id_val = raw.split("/", 1)
+        protocol = protocol.strip().lower()
+        db_id    = db_device_id.strip()
+        id_val   = id_val.strip()
 
-        if protocol == "tuya":
-                    # Fetch Tuya device state
-            state_payload = await get_device_state(addr)
-            
-        elif protocol == "upnp":
-            state_payload = await get_upnp_device_state(addr)
-        else:   
-            print(f"[Python] Unsupported protocol for state fetch: {protocol}")
-            return
-
-        if not state_payload:
-            print(f"[ERROR] No payload received for {addr}")
-            return
-
-        pub_topic = f"app/devices/{db_device_id}/state/out"
-        mqtt_client.publish(pub_topic, json.dumps(state_payload), qos=0, retain=False)
+       # Always update or insert for upnp: (no duplicates, always keyed by uuid)
+        for d in monitored_devices:
+            if d["db_id"] == db_id:
+                d.update({"protocol": protocol, "id_val": id_val})
+                break
+        else:
+            monitored_devices.append({"db_id": db_id, "protocol": protocol, "id_val": id_val})
+        if state_polling_task is None or state_polling_task.done():
+            state_polling_task = asyncio.create_task(state_poll_loop())
 
     except ValueError:
-        print(f"[ERROR] Expected 'protocol/addr', got '{raw}'")
-    except Exception as e:
-        print(f"[ERROR] handle_state_request: {e}")
-
+        print(f"[Python] ERROR: STATE_IN must be '<protocol>/<id_val>'. Got: '{raw}'")
 
 
 # ───────────────────────────────────────────────────────────────────────
+
+async def state_poll_loop():
+    print("[Python] Running state polling loop.")
+    while True:
+        print('**aici state_pool***')
+
+        for dev in monitored_devices:
+            db_id    = dev["db_id"]
+            protocol = dev["protocol"]
+            id_val   = dev["id_val"]
+
+            if not db_id or not id_val:
+                continue
+
+            try:
+                if protocol == "upnp":
+                    # Find latest location from uuid
+                    location_url, _ = await get_upnp_location_for_uuid(id_val)
+                    if not location_url:
+                        continue  # Device is offline or missing
+                    state = await get_upnp_device_state(location_url)
+                elif protocol == "tuya":
+                    state = await get_device_state(id_val)
+                else:
+                    continue
+
+                state_json = json.dumps(state, sort_keys=True)
+                prior_json = last_state.get(db_id)
+
+                if prior_json != state_json:
+                    print('changed state')
+                    pub_topic = f"app/devices/{db_id}/state/out"
+                    mqtt_client.publish(pub_topic, state_json, qos=0, retain=False)
+                    last_state[db_id] = state_json
+            except Exception as e:
+                print(f"[Python] Exception in state polling for {db_id}: {e}")
+
+        await asyncio.sleep(2)
+
+
+# ───────────────────────────────────────────────────────────────────────
+
+
 async def _handle_status_message(raw: str, db_device_id:str):
     """
     Runs on the main asyncio loop. Parse raw = "<db_id>/<protocol>/<id_val>/<old_status>",
@@ -308,66 +330,111 @@ async def _handle_status_message(raw: str, db_device_id:str):
         db_id      = db_device_id.strip()
         id_val     = id_val.strip()
         old_status = old_status.strip().lower()
+
         if old_status not in ("online", "offline"):
             old_status = None
 
-        existing_ids = {d["db_id"] for d in monitored_devices}
-        if db_id not in existing_ids:
-            monitored_devices.append({
-                "db_id":    db_id,
-                "protocol": protocol,
-                "id_val":   id_val,
-            })
-            last_status[db_id] = old_status
+        # --- update or insert ---
+        for d in monitored_devices:
+            if d["db_id"] == db_id:
+                d.update({"protocol": protocol, "id_val": id_val})
+                break
         else:
-            # If re-sent with a (possibly different) old_status, update it
-            last_status[db_id] = old_status
+            monitored_devices.append({"db_id": db_id, "protocol": protocol, "id_val": id_val})
+        
+        last_status[db_id] = old_status
 
-        # Ensure our 2-second polling task is running
         if polling_task is None or polling_task.done():
             polling_task = asyncio.create_task(status_poll_loop())
-
     except ValueError:
         print(f"[Python] ERROR: STATUS_IN must be '<db_id>/<protocol>/<id_val>/<old_status>'. Got: '{raw}'")
 
 
 # ───────────────────────────────────────────────────────────────────────
+# async def status_poll_loop():
+#     """
+#     Every 2 seconds, iterate through monitored_devices:
+#      • Do the protocol-specific existence check
+#      • If the observed status ("online"/"offline") ≠ last_status[db_id], publish "<db_id>/<current>" to TOPIC_PUB3
+#     """
+#     print("[Python] Starting every second polling loop for status checks.")
+#     while True:
+#         for dev in monitored_devices:
+#             db_id    = dev["db_id"]
+#             protocol = dev["protocol"]
+#             id_val   = dev["id_val"]
+
+#             if not db_id or not id_val:
+#                 continue
+
+#             if protocol == "upnp":
+#                 found = await device_exists(id_val)
+#             elif protocol in ("tuya"):
+#                 found = await get_tuya_device_status(id_val)
+#             else:
+#                 # Unrecognized protocol → skip
+#                 continue
+
+#             current = "online" if found else "offline"
+#             prior   = last_status.get(db_id)
+
+#             if prior != current:
+#                 print('changed status')
+#                 payload = f"{current}"
+#                 pub_topic = f"app/devices/{db_id}/status/out"
+#                 mqtt_client.publish(pub_topic, payload, qos=0, retain=False)
+#                 last_status[db_id] = current
+
+#         await asyncio.sleep(1)
+
+
 async def status_poll_loop():
-    """
-    Every 2 seconds, iterate through monitored_devices:
-     • Do the protocol-specific existence check
-     • If the observed status ("online"/"offline") ≠ last_status[db_id], publish "<db_id>/<current>" to TOPIC_PUB3
-    """
     print("[Python] Starting every second polling loop for status checks.")
+    global last_upnp_location
     while True:
+        print('**aici status_loop***')
         for dev in monitored_devices:
-            db_id    = dev["db_id"]
+            db_id = dev["db_id"]
             protocol = dev["protocol"]
-            id_val   = dev["id_val"]
+            id_val = dev["id_val"]
 
             if not db_id or not id_val:
                 continue
-
-            if protocol == "upnp":
-                found = await device_exists(id_val)
-            elif protocol in ("tuya"):
+            # -- TUYA/other logic untouched --
+            if protocol == "tuya":
                 found = await get_tuya_device_status(id_val)
-            else:
-                # Unrecognized protocol → skip
-                continue
-
-            current = "online" if found else "offline"
-            prior   = last_status.get(db_id)
-
-            if prior != current:
-
-                #aici trebuie sa sterg db_id  din payload
-
-                payload = f"{current}"
-                pub_topic = f"app/devices/{db_id}/status/out"
-                mqtt_client.publish(pub_topic, payload, qos=0, retain=False)
-                last_status[db_id] = current
-
+                current = "online" if found else "offline"
+                prior = last_status.get(db_id)
+                if prior != current:
+                    print('changed status (tuya)')
+                    payload = f"{current}"
+                    pub_topic = f"app/devices/{db_id}/status/out"
+                    mqtt_client.publish(pub_topic, payload, qos=0, retain=False)
+                    last_status[db_id] = current
+            # -- UPNP LOGIC WITH LOCATION TRACKING --
+            elif protocol == "upnp":
+                # id_val is uuid!
+                cur_location, cur_ip = await get_upnp_location_for_uuid(id_val)
+                prior_location = last_upnp_location.get(id_val)
+                prior_status = last_status.get(db_id)
+                # Determine online/offline
+                current_status = "online" if cur_location else "offline"
+                # Compose output logic
+                if (prior_location != cur_location) and (prior_status != current_status):
+                    payload = f"{current_status}/{cur_location or ''}"
+                elif (prior_location != cur_location):
+                    payload = f"{cur_location or ''}"
+                elif (prior_status != current_status):
+                    payload = f"{current_status}"
+                else:
+                    payload = None  # No change, no publish
+                if payload:
+                    print('changed status or location (upnp):', payload)
+                    pub_topic = f"app/devices/{db_id}/status/out"
+                    mqtt_client.publish(pub_topic, payload, qos=0, retain=False)
+                last_status[db_id] = current_status
+                last_upnp_location[id_val] = cur_location
+            # BLE or other: skip here
         await asyncio.sleep(1)
 
 

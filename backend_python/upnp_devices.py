@@ -62,6 +62,7 @@ async def scan_ssdp():
 
                 device_entry = {
                     "deviceName": friendly_name if friendly_name else "Unknown",
+                    "type": "media",
                     "MAC": get_mac(ip_address).upper(),
                     "IP": ip_address,
                     "uuid": device_uuid.replace("uuid:", ""),

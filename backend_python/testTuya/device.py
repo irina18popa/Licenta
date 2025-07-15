@@ -80,8 +80,14 @@ async def get_tuya_device_commands(device_tuya_id: str) -> dict:
 
 # API for list of devices
 async def get_tuya_device() -> list:
-    # fetch device list
     response = await asyncio.to_thread(openapi.get, "/v2.0/cloud/thing/device", {"page_size": 20})
+
+    CATEGORY_MAP = {
+        "cz": "plug",
+        "dj": "bulb",
+        "wsdcg": "sensor_th",
+        "mcs": "sensor_flood",
+    }
 
     output = []
     for device in response.get("result", []):
@@ -91,13 +97,22 @@ async def get_tuya_device() -> list:
             "/v1.0/devices/factory-infos",
             {"device_ids": device_id}
         )
-        info = fi_response["result"][0]
+        info_list = fi_response.get("result", [])
+        if not info_list:
+            print(f"No MAC for device {device_id} ({device.get('customName') or device.get('name')})")
+            mac_original = ""
+        else:
+            info = info_list[0]
+            mac_original = info.get("mac", "")
 
-        mac_original = info.get("mac", "")
-        processed_mac = ":".join(octet.upper() for octet in mac_original.split(":")[::-1])
+        processed_mac = ":".join(octet.upper() for octet in mac_original.split(":")[::-1]) if mac_original else ""
+
+        category_code = device.get("category")
+        device_type = CATEGORY_MAP.get(category_code, category_code or "unknown")
 
         output.append({
             "deviceName": device.get("customName") or device.get("name"),
+            "type": device_type,
             "manufacturer": "TUYA",
             "MAC": processed_mac,
             "uuid": device.get("uuid"),
@@ -106,8 +121,10 @@ async def get_tuya_device() -> list:
             "metadata": device_id
         })
 
-    print (output)
+    #print(output)
     return output
+
+
     #3️⃣ Print final combined JSON
     #print(json.dumps(output, indent=4))
 
@@ -137,6 +154,7 @@ async def get_device_state(device_tuya_id:str):
             "state": status_array,  # directly include Tuya's format
         }
 
+        #print(payload)
         return payload
 
     except Exception as e:
@@ -340,25 +358,25 @@ payload_combo = {
 }
 
 
-def main():
-    device_id = "bfbdeb81177e0fca75y6ws"
+# def main():
+#     device_id = "bfbdeb81177e0fca75y6ws"
 
-    # send the command
-    response = openapi.post(
-        f"/v1.0/iot-03/devices/{device_id}/commands",
-        payload_combo
-    )
-    print("Command response:")
-    print(json.dumps(response, indent=4))
+#     # send the command
+#     response = openapi.post(
+#         f"/v1.0/iot-03/devices/{device_id}/commands",
+#         payload_combo
+#     )
+#     print("Command response:")
+#     print(json.dumps(response, indent=4))
 
-    # fetch status
-    status = openapi.get(f"/v1.0/devices/{device_id}/status")
-    print("\nDevice status:")
-    print(json.dumps(status, indent=4))
+#     # fetch status
+#     status = openapi.get(f"/v1.0/devices/{device_id}/status")
+#     print("\nDevice status:")
+#     print(json.dumps(status, indent=4))
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
 
 # # # Pretty-print the JSON respons
 #print(json.dumps(response, indent=4))
