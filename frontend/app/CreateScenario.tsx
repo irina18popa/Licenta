@@ -9,7 +9,6 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import images from '@/constants/images';
 import { createScenario, getDeviceById, getUserDevices } from './apis';
@@ -18,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useScenarioBuilder } from './contexts/ScenarioBuilderContext';
 
 
-type Device = { _id: string; name: string; type: 'tv' | 'lamp'; };
+type Device = { _id: string; name: string; type: String; };
 
 type ScenarioCommand = {
   deviceId: string;
@@ -56,14 +55,11 @@ const CreateScenario = () => {
   const [showToPicker, setShowToPicker] = useState(false);
 
   const navigation = useNavigation()
-  // --- helpers ---
 
    useEffect(() => {
     (async () => {
       try {
-        const devices = await getUserDevices();  // however your API returns them
-        // if your API returns { data: Device[] }:
-        // setAllDevices(devices.data);
+        const devices = await getUserDevices(); 
         setAllDevices(devices);
       } catch (e) {
         console.error('Couldn’t load devices', e);
@@ -96,10 +92,7 @@ const CreateScenario = () => {
   }
 
   const handleSaveScenario = async() => {
-    //console.log('Final scenario commands:', JSON.stringify(commands, null, 2));
-    // e.g. POST to your backend:
-    // axios.post('/api/scenarios', { name, trigger, commands: scenarioCommands });
-    try {
+      try {
       if (!scenarioName.trim()) {
         Alert.alert('Validation Error', 'Please enter a scenario name.');
         return;
@@ -207,12 +200,26 @@ const CreateScenario = () => {
           ))}
         </View>
 
-        {/* 3️⃣ Jump into per-device control */}
-
         {selectedDeviceIds.map(deviceId => {
           const dev = allDevices.find(d => d._id === deviceId)!;
           // pick the right route:
-          const screen = dev.type === 'tv' ? 'Remote3' : 'LampControl';
+          let screen;
+          switch (dev.type) {
+            case 'media':
+              screen = 'Remote3';
+              break;
+            case 'bulb':
+              screen = 'LampControl';
+              break;
+            case 'plug':
+              screen = 'PlugControl';
+              break;
+            case 'sensor_th':
+              screen = 'THControl';
+              break;
+            default:
+              screen = 'WaterFlood';
+          }
 
           return (
             <Pressable
@@ -222,13 +229,12 @@ const CreateScenario = () => {
                 params: {
                   id: deviceId,
                   mode: "scenario"
-                  // pass along any state or callback you need…
                 }
               })}
               className="mb-4 rounded-lg bg-neutral-700 p-4 flex-row items-center"
             >
               <Image
-                source={dev.type === 'tv' ? images.tv : images.newYork}
+                source={images.homeiq_logo_transparent}
                 className="w-10 h-10 mr-3"
               />
               <Text className="text-white text-lg">{dev.name}</Text>
@@ -237,11 +243,8 @@ const CreateScenario = () => {
           );
         })}
 
-
-        {/* 4️⃣ Trigger Selector */}
         <Text className="text-white mb-2">When to run</Text>
 
-        {/* Days of Week */}
         <View className="flex-row mb-4">
           {['S','M','T','W','T','F','S'].map((L, i) => (
             <Pressable
@@ -259,7 +262,6 @@ const CreateScenario = () => {
           ))}
         </View>
 
-        {/* Time Window */}
         <View className="flex-row justify-between mb-8">
           <Pressable
             onPress={() => setShowFromPicker(true)}
@@ -299,18 +301,7 @@ const CreateScenario = () => {
             }}
           />
         )}
-        {/* Weather Condition Input */}
-      <Text className="text-white mb-1">Weather Condition (e.g. Rain, Clear)</Text>
-      <TextInput
-        placeholder="Weather Condition"
-        placeholderTextColor="#aaa"
-        className="text-white text-base border-b border-neutral-700 pb-1 mb-4"
-        onChangeText={(val) =>
-          setTrigger(t => ({ ...t, weatherCondition: val }))
-        }
-      />
 
-      {/* Temperature Trigger */}
       <Text className="text-white mb-1">Temperature Trigger</Text>
       <View className="flex-row items-center space-x-2 mb-6">
         <TextInput

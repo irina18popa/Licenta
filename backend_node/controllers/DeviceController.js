@@ -21,6 +21,20 @@ export const getDeviceById = async (req, res) => {
   }
 };
 
+
+// GET /api/devices/name/:name
+export const getDeviceByName = async (req, res) => {
+  try {
+    const device = await Device.findOne({ name: req.params.name });
+    if (!device) return res.status(404).json({ message: "Device not found" });
+    res.json(device);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+
+
 // Create a new device
 export const createDevice = async (req, res) => {
   const { name, type, manufacturer, macAddress, ipAddress, uuid, protocol, status, metadata, icon } = req.body;

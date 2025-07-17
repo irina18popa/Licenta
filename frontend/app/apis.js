@@ -184,31 +184,63 @@ export async function saveDevice(deviceData) {
 
 
 export async function handleRequest(topic, type, payload) {
+  // === Extract deviceId from topic ===
+  let deviceId = null;
+  const match = topic.match(/app\/devices\/([^/]+)/);
+  if (match) {
+    deviceId = match[1];
+  }
+
+  // === Extract command and value from payload ===
+  let command = '';
+  let value = null;
   try {
-    console.log(`published to ${topic} payload: ${payload}`)
+    const payloadObj = JSON.parse(payload);
+    if (payloadObj.commands && payloadObj.commands.length > 0) {
+      command = payloadObj.commands[0].code || '';
+      value = payloadObj.commands[0].value;
+    }
+  } catch (parseErr) {
+    command = 'PARSE_ERROR';
+    value = null;
+  }
+
+  try {
+    console.log(`published to ${topic} payload: ${payload}`);
 
     const res = await axios.post(`${API_URL}/mqtttopic/handle`, {
       topic,
       type,
       payload,
     });
+
+    // === Log success ===
+    await createLog(
+      "SUCCESS",
+      deviceId,
+      command,
+      { value, response: res.data }
+    );
+
     return res.data;
   } catch (err) {
+    // === Log error ===
+    await createLog(
+      "ERROR",
+      deviceId,
+      command,
+      {
+        value,
+        error: err.response?.data || err.message,
+        payload
+      }
+    );
+
     console.error('Failed to send the request:', err.response?.data || err.message);
     throw new Error('Failed to send the request');
   }
 }
 
-// export const fetchDiscoveredDevices = async () => {
-//   try {
-//     const res = await axios.get(`${API_URL}/discovered`);
-//     //console.log('Fetched devices:', res.data);
-//     return res.data;
-//   } catch (err) {
-//     console.error('Error fetching devices:', err.response?.data || err.message);
-//     return [];
-//   }
-// };
 
 
 export async function removeDeviceFromUser(userId, deviceId) {
@@ -227,10 +259,11 @@ export async function removeDeviceFromUser(userId, deviceId) {
 export const deleteDevice = async (deviceId) => {
   try {
     const endpoints = [
-      axios.delete(`${API_URL}/devices/${deviceId}`),                    // Main device
-      axios.delete(`${API_URL}/devicecommands/${deviceId}`),            // Command config
-      axios.delete(`${API_URL}/devicestate/${deviceId}`),             // Status config
-      axios.delete(`${API_URL}/mqtttopic/device/${deviceId}`),               // MQTT topics
+      axios.delete(`${API_URL}/devices/${deviceId}`),                  
+      axios.delete(`${API_URL}/devicecommands/${deviceId}`),            
+      axios.delete(`${API_URL}/devicestate/${deviceId}`),             
+      axios.delete(`${API_URL}/mqtttopic/device/${deviceId}`),   
+      axios.delete(`${API_URL}/logs/${deviceId}`),               
     ];
 
     const results = await Promise.allSettled(endpoints);
@@ -379,7 +412,6 @@ export async function createRoom(payload){
 
 export async function getAllRooms() {
   try {
-    console.log("aici")
     const res = await axios.get(`${API_URL}/room`);
     return res.data;
   } catch (error) {
@@ -393,17 +425,64 @@ export async function getRoomById(id) {
     return res.data;
   } catch (err) {
     console.error(`Failed to fetch room ${id}:`, err.response?.data || err.message);
-    throw new Error('Failed to fetch room');
+    //throw new Error('Failed to fetch room');
   }
 }
 
-export async function deleteRoom(roomId) {
-  try {  
-    console.log(roomId)
+
+export async function getDevicesFromRoom(roomId) {
+  try {
+    // Fetch the room
+    const room = await getRoomById(roomId);
+    if (!room || !Array.isArray(room.devices) || room.devices.length === 0) {
+      return []; // No devices
+    }
+    // Fetch each device by ID (parallel requests)
+    const devicePromises = room.devices.map(deviceId =>
+      axios.get(`${API_URL}/devices/${typeof deviceId === 'string' ? deviceId : deviceId._id}`).then(res => res.data)
+    );
+    const devices = await Promise.all(devicePromises);
+    return devices;
   } catch (err) {
-    console.warn('Delete failed:', err.response?.data || err.message);
+    console.error('Failed to fetch devices from room:', err.response?.data || err.message);
+    throw new Error('Failed to fetch devices from room');
   }
 }
+
+
+
+export async function deleteRoom(roomId) {
+  try {  
+    //console.log(roomId)
+    const res = await axios.delete(`${API_URL}/room/${roomId}`);
+    return res.data;
+  } catch (err) {
+    console.error('Delete failed:', err.response?.data || err.message);
+  }
+}
+
+export async function addDeviceToRoom(roomId, deviceId) {
+  try {
+    const res = await axios.post(`${API_URL}/room/${roomId}/add-device`, { deviceId });
+    return res.data; // Returns the updated room object
+  } catch (err) {
+    console.error('Failed to add device to room:', err.response?.data || err.message);
+    throw new Error('Failed to add device to room');
+  }
+}
+
+
+export async function removeDeviceFromRoom(roomId, deviceId) {
+  try {
+    const res = await axios.post(`${API_URL}/room/${roomId}/remove-device`, { deviceId });
+    return res.data; // Returns the updated room object
+  } catch (err) {
+    console.error('Failed to remove device from room:', err.response?.data || err.message);
+    throw new Error('Failed to remove device from room');
+  }
+}
+
+
 
 export async function sendVoiceRecord(formData) {
   try {
@@ -414,12 +493,43 @@ export async function sendVoiceRecord(formData) {
     });
     const data = await response.json();
     console.log('record sent');
-    return { data }; // to match axios' response.data structure
+    console.log(data)
+    return data ; 
   } catch (error) {
     console.error('Creating record failed:', error.message);
     throw error;
   }
 }
+
+export async function createLog(type, deviceId, command, value) {
+  try {
+    const res = await axios.post(`${API_URL}/logs`, { type, deviceId, command, value });
+    return res.data;
+  } catch (err) {
+    console.error('Failed to save device log:', err.response?.data || err.message);
+  }
+}
+
+export async function getLogsByDeviceId(deviceId) {
+  try {
+    const res = await axios.get(`${API_URL}/logs/${deviceId}`);
+    console.log(res.data)
+    return res.data;
+  } catch (err) {
+    console.error('Failed to fetch logs:', err.response?.data || err.message);
+  }
+}
+
+export async function getLast6StatusLogs(deviceId) {
+  try {
+    const res = await axios.get(`${API_URL}/logs/${deviceId}/status`);
+    return res.data;
+  } catch (err) {
+    console.error('Failed to fetch last 6 status logs:', err.response?.data || err.message);
+  }
+}
+
+
 
 export default {
   saveDevice,

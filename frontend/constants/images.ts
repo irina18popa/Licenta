@@ -18,6 +18,9 @@ import plus from "@/assets/images/plus.png"
 import lamp from "@/assets/images/lamp.png"
 import th_sensor from "@/assets/images/th_sensor.png"
 import flood_sensor from "@/assets/images/flood_sensor.png"
+import plug from "@/assets/images/plug.png"
+import homeiq_logo_transparent from "@/assets/images/homeiq-logo-transparent.png"
+
 
 
 export default {
@@ -40,5 +43,7 @@ export default {
   plus,
   lamp,
   th_sensor,
-  flood_sensor
+  flood_sensor,
+  plug,
+  homeiq_logo_transparent
 };

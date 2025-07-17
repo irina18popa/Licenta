@@ -3,6 +3,7 @@ import { Modal, View, Text, TouchableOpacity, ActivityIndicator } from "react-na
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { Audio } from "expo-av";
 import { sendVoiceRecord } from "./apis"; // Import your backend function
+import * as Speech from "expo-speech";
 
 interface Props {
   onClose: () => void;
@@ -23,6 +24,14 @@ export default function VoiceAssistantModal({ onClose }: Props) {
       }
     };
   }, []);
+
+
+  const speak = (text) => {
+    if (text) {
+      Speech.speak(text);
+    }
+  };
+  
 
   const startRecording = async () => {
     try {
@@ -66,9 +75,10 @@ export default function VoiceAssistantModal({ onClose }: Props) {
           type: "audio/m4a",
         });
         const response = await sendVoiceRecord(formData);
-    
-        console.log(response.data.text);
-        setTranscript(response.data.text || "No text found.");
+        
+        speak(response)
+        setTranscript(response)
+      
       }
     } catch (e) {
       console.error(e)
@@ -87,9 +97,7 @@ export default function VoiceAssistantModal({ onClose }: Props) {
 
   return (
     <Modal visible animationType="fade" transparent onRequestClose={handleClose}>
-      {/* Blurred background */}
         <View className="flex-1 justify-center items-center px-6 bg-black/90 rounded-lg">
-          {/* X Button */}
           <TouchableOpacity
             className="absolute right-6 top-12 z-10 p-2"
             onPress={handleClose}

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import images from '@/constants/images';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { getDeviceById, getDeviceStateById, handleRequest, uploadFile, deleteMediaByUrl } from '@/app/apis';
 import * as FileSystem from 'expo-file-system';
 import { useScenarioBuilder } from '@/app/contexts/ScenarioBuilderContext';
@@ -125,6 +125,38 @@ const THControl = () => {
   return (
     <SafeAreaView className="flex-1 bg-black">
         <Image source={images.background} className="absolute w-full h-full" blurRadius={10} />
+        <View className="absolute top-14 left-6 z-10">
+          <TouchableOpacity
+            className="bg-white/20 rounded-full p-2 flex-row items-center"
+            onPress={() => {
+              if (id) {
+                router.navigate({
+                  pathname: "/Logs",
+                  params: { id: id },
+                });
+              }
+            }}
+          >
+            <Ionicons name="list-outline" size={28} color="#FBBF24" />
+            <Text className="ml-1 text-yellow-300 font-semibold">Logs</Text>
+          </TouchableOpacity>
+        </View>
+        <View className="absolute top-12 right-6 z-10">
+          <TouchableOpacity
+            className="bg-white/20 rounded-full p-2"
+            onPress={() => {
+              if (id) {
+                router.navigate({
+                  pathname: "/StatusChart",
+                  params: { id:id },
+                })
+              }
+            }}
+          >
+            <Ionicons name="stats-chart" size={28} color="#60A5FA" />
+            <Text>Statistics</Text>
+          </TouchableOpacity>
+        </View>
         <View className="items-center mt-16 mb-6">
           <Image source={images.th_sensor} className="w-64 h-40" resizeMode="contain" />
         </View>

@@ -21,6 +21,8 @@ import SwipeableRow from "@/components/SwipeableRow";
 import { ScrollView, Swipeable } from "react-native-gesture-handler";
 import * as SecureStore from 'expo-secure-store';
 import VoiceAssistantModal from "@/app/VoiceAssistantModal";
+import { LogBox } from 'react-native';
+
 
   const apiKey = '3911749f8e26e530fd89787c88f2723d';
 
@@ -50,10 +52,14 @@ interface Weather {
 interface Room {
   _id: string;
   name: string;
-  image: string; // use string if it's a URL
+  image: string; 
   devices: string[];
 }
 
+
+LogBox.ignoreLogs([
+  'VirtualizedLists should never be nested', 
+]);
 
 
 const SOCKET_SERVER_URL = 'http://192.168.1.135:3000';
@@ -103,6 +109,7 @@ const HomeScreen = () => {
 
     fetchUserInfo();
     fetchRooms(); // ← add this
+    fetchWeather()
 
   }, [])
 
@@ -146,7 +153,6 @@ const HomeScreen = () => {
 
 
   useEffect(() => {
-    // 1) Initial fetch (so we have something to display right away)
     fetchDevices();
 
     // 2) Connect to Socket.io
@@ -155,9 +161,7 @@ const HomeScreen = () => {
       // If you move to HTTPS/WSS, just do: "https://your‐domain.com"
     });
 
-    // 3) Listen for “device:status_changed” events
     socketRef.current.on("device:status_changed", ({ deviceId, newStatus }) => {
-      // Update local state for just that one device:
       setDevices((prevDevices) =>
         prevDevices.map((d) =>
           d._id === deviceId ? { ...d, status: newStatus } : d
@@ -178,42 +182,20 @@ const HomeScreen = () => {
   )
 
 
-//   useEffect(() => {
-//      const fetchWeather = async () => {
-//       if (!city) return Alert.alert('Please enter a city name!');
-//         setLoading(true);
-//         setWeather(null);
-//         try {
-//           const res = await fetch(
-//             `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(
-//               city
-//             )}&appid=${apiKey}&units=metric`
-//           );
-//           const data = await res.json();
-//           if (res.ok && data.weather && data.main) {
-//             setWeather(data);
-//           } else {
-//             setWeather(null);
-//             Alert.alert('Not found', data.message || 'Could not find that city!');
-//           }
-//         } catch (e) {
-//           Alert.alert('Network error', String(e));
-//         }
-//         setLoading(false);
-//     };
-//     fetchWeather();
-// }, []);
-
-
     const fetchWeather = async () => {
-      if (!city) return Alert.alert("Please enter a city name!");
+      const user = await getLoggedInUser();
+      const city = user?.location; // This is the city name you saved earlier!
+      setCity(city)
+      if (!city){
+        setCity('')
+        return Alert.alert("No city set in your profile!");
+      } 
       setLoading(true);
       setWeather(null);
+
       try {
         const res = await fetch(
-          `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(
-            city
-          )}&appid=${apiKey}&units=metric`
+          `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${apiKey}&units=metric`
         );
         const data = await res.json();
         if (res.ok && data.weather && data.main) {
@@ -265,7 +247,6 @@ const HomeScreen = () => {
       const type = "publish";
       // Send to backend (MQTT broker or similar)
       await handleRequest(topic, type, JSON.stringify(fullPayload));
-      // fetchDevices()
 
       // Update local state for instant feedback
       setDevices((prev) =>
@@ -275,7 +256,6 @@ const HomeScreen = () => {
             : d
         )
       );
-      //setTimeout(() => fetchDevices(), 500)
     } catch (err) {
       Alert.alert("Error", "Failed to toggle switch");
       console.error("Toggle error:", err.message || err);
@@ -362,6 +342,9 @@ const HomeScreen = () => {
         break;
       case "sensor_th":
         screen = "/properties/THControl";
+        break;
+      case "plug":
+        screen = "/properties/PlugControl";
         break;
       default:
         screen = "/properties/WaterFlood";
@@ -458,17 +441,11 @@ const HomeScreen = () => {
           </View>
         </TouchableOpacity>
         <View className="flex-col items-center p-2 gap-y-5">
-          <TouchableOpacity>
-            <Ionicons name="notifications-outline" size={24} color="#4B5563" />
-          </TouchableOpacity>
-          <TouchableOpacity>
-            <MaterialCommunityIcons name="qrcode-scan" size={24} color="#4B5563" />
-          </TouchableOpacity>
           <TouchableOpacity onPress={() => router.navigate("/AddDevice")}>
-            <MaterialCommunityIcons name="plus" size={24} color="#4B5563" />
+            <MaterialCommunityIcons name="plus" size={34} color="#4B5563" />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setShowVoiceModal(true)}>
-            <FontAwesome name="microphone" size={24} color="#4B5563" />
+            <FontAwesome name="microphone" size={34} color="#4B5563" />
           </TouchableOpacity>
           {showVoiceModal && (
             <VoiceAssistantModal onClose={() => setShowVoiceModal(false)} />
@@ -476,44 +453,13 @@ const HomeScreen = () => {
         </View>
       </View>
 
-      <TouchableOpacity
-        onPress={() => router.navigate('/VoiceAssistantModal')}
-        className="mx-5 mt-3 bg-blue-600 py-3 rounded-lg items-center"
-      >
-        <Text className="text-white font-bold text-base">Voice Assistant</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        onPress={() => router.navigate('/DemoTTS')}
-        className="mx-5 mt-3 bg-blue-600 py-3 rounded-lg items-center"
-      >
-        <Text className="text-white font-bold text-base">Demo TTS</Text>
-      </TouchableOpacity>
-      {/* Weather Card (unchanged) */}
       <View className="p-4">
-        <TextInput
-          className="border border-blue-300 rounded-xl px-4 py-3 text-lg mb-2 bg-white"
-          placeholder="Enter city name"
-          value={city}
-          onChangeText={setCity}
-          autoCapitalize="words"
-          placeholderTextColor="#aaa"
-        />
-        <TouchableOpacity
-          className={`bg-blue-300 py-3 rounded-xl items-center mb-5 ${loading ? 'opacity-10' : ''}`}
-          onPress={fetchWeather}
-          disabled={loading}
-        >
-          <Text className="text-white font-bold text-lg">
-            {loading ? "Loading..." : "Get Weather"}
-          </Text>
-        </TouchableOpacity>
         {weather && weather.weather && weather.weather[0] && (
           <View className="flex-row bg-blue-500 mx-2 rounded-2xl p-5 items-center">
             <Image
-              source={{
-                uri: `https://openweathermap.org/img/wn/${weather.weather[0].icon}@4x.png`,
-              }}
+              // source={{
+              //   uri: `https://openweathermap.org/img/wn/${weather.weather[0].icon}@4x.png`,
+              // }}
               className="w-20 h-20"
             />
             <View className="ml-4 flex-1">

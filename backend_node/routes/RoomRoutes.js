@@ -5,16 +5,20 @@ import {
   createRoom,
   updateRoom,
   deleteRoom,
-  removeDeviceFromRoom
+  removeDeviceFromRoom,
+  addDeviceToRoom,
+  getRoomByName
 } from '../controllers/RoomController.js';
 
 const router = express.Router();
 
 router.get('/', getAllRooms);
 router.get('/:id', getRoomById);
+router.get('/name/:name', getRoomByName);
 router.post('/', createRoom);
 router.put('/:id', updateRoom);
 router.delete('/:id', deleteRoom);
-router.post('/remove-device/:id', removeDeviceFromRoom)
+router.post('/:id/remove-device', removeDeviceFromRoom);
+router.post('/:id/add-device', addDeviceToRoom);
 
 export default router;

@@ -33,6 +33,7 @@ const MyColorPicker = ({ sharedColor, deviceID, mode } : MyColorPickerInlineProp
         ],
       };
 
+
       if (mode === 'live')
       {
         const res = await getDeviceById(deviceID);

@@ -362,7 +362,7 @@ export default function ScenariosCarousel() {
               ])
             }
           >
-            <Text>My Scenarios</Text>
+            <Text className='text-2xl text-white mt-4 mb-10'>My Scenarios</Text>
             <BlurView
               intensity={100}
               tint="dark"

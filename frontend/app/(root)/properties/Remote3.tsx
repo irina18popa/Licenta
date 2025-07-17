@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import images from '@/constants/images';
 import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { getDeviceById, getDeviceStateById, handleRequest, uploadFile, deleteMediaByUrl } from '@/app/apis';
 import * as FileSystem from 'expo-file-system';
 import { useScenarioBuilder } from '@/app/contexts/ScenarioBuilderContext';
@@ -52,6 +52,7 @@ const RemoteControlScreen: React.FC = () => {
     const address = dev.uuid || 'unknown';
     const payload = { protocol, address, commands: [{ name: commandName, parameters: params }] };
     const topic   = `app/devices/${id}/do_command/in`;
+    
     await handleRequest(topic, 'publish', JSON.stringify(payload));
   };
   
@@ -183,7 +184,38 @@ const RemoteControlScreen: React.FC = () => {
     <SafeAreaView className="flex-1 bg-black">
       {/* Header */}
       <Image source={images.background} className="absolute w-full h-full" blurRadius={10} />
-
+      <View className="absolute top-14 left-6 z-10">
+        <TouchableOpacity
+          className="bg-white/20 rounded-full p-2 flex-row items-center"
+          onPress={() => {
+            if (id) {
+              router.navigate({
+                pathname: "/Logs",
+                params: { id: id },
+              });
+            }
+          }}
+        >
+          <Ionicons name="list-outline" size={28} color="#FBBF24" />
+          <Text className="ml-1 text-yellow-300 font-semibold">Logs</Text>
+        </TouchableOpacity>
+      </View>
+      <View className="absolute top-12 right-6 z-10">
+        <TouchableOpacity
+          className="bg-white/20 rounded-full p-2"
+          onPress={() => {
+            if (id) {
+              router.navigate({
+                pathname: "/StatusChart",
+                params: { id:id },
+              })
+            }
+          }}
+        >
+          <Ionicons name="stats-chart" size={28} color="#60A5FA" />
+          <Text>Statistics</Text>
+        </TouchableOpacity>
+      </View>
       {/* TV Image */}
       <View className="items-center mt-24">
         <Image source={images.tv} className="w-64 h-40" resizeMode="contain" />

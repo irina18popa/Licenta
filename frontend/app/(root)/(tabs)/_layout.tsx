@@ -60,7 +60,6 @@ const TabsLayout = () => {
   }
   
   return (
-    <GestureHandlerRootView>
         <Tabs
             screenOptions={{
                 tabBarShowLabel:false,
@@ -105,7 +104,6 @@ const TabsLayout = () => {
                 }}>
             </Tabs.Screen>
         </Tabs>
-    </GestureHandlerRootView>
   )
 }
 

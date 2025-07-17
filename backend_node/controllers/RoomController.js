@@ -22,6 +22,18 @@ export const getRoomById = async (req, res) => {
   }
 };
 
+// GET /api/rooms/name/:name
+export const getRoomByName = async (req, res) => {
+  try {
+    const room = await Room.findOne({ name: req.params.name }).populate('devices');
+    if (!room) return res.status(404).json({ message: 'Room not found' });
+    res.json(room);
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching room', error: err.message });
+  }
+};
+
+
 // POST /api/rooms
 export const createRoom = async (req, res) => {
   try {
@@ -61,10 +73,27 @@ export const deleteRoom = async (req, res) => {
   }
 };
 
+export const addDeviceToRoom = async (req, res) => {
+  const { deviceId } = req.body;
+  try {
+    // $addToSet will only add if deviceId is not already present
+    const updatedRoom = await Room.findByIdAndUpdate(
+      req.params.id,
+      { $addToSet: { devices: deviceId } },
+      { new: true }
+    ).populate('devices');
+    if (!updatedRoom) return res.status(404).json({ message: 'Room not found' });
+    res.json(updatedRoom);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to add device to room', error: err.message });
+  }
+};
+
+
 export const removeDeviceFromRoom = async (req, res) => {
   const { deviceId } = req.body;
   try {
-    const updated = await RoomModel.findByIdAndUpdate(
+    const updated = await Room.findByIdAndUpdate(
       req.params.id,
       { $pull: { devices: deviceId } },
       { new: true }

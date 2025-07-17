@@ -17,6 +17,7 @@ import path from "path";
 import { mediaRoutes } from "./routes/MediaRoutes.js";
 import scenarioRoutes from "./routes/ScenarioRoutes.js"
 import roomRoutes from "./routes/RoomRoutes.js"
+import logsRoutes from "./routes/LogsRoutes.js"
 import voiceRecordRoute from "./routes/GetVoiceRecordRoute.js"
 import { startTimeTriggerScheduler } from "./cronjobs/timeTriggers.js";
 
@@ -300,6 +301,7 @@ app.use("/api/upload", uploadRoutes);
 app.use("/api/scenario", scenarioRoutes)
 app.use("/api/room", roomRoutes)
 app.use("/api/voicerecord", voiceRecordRoute)
+app.use("/api/logs", logsRoutes)
 
 connectDB()
   .then(() => {

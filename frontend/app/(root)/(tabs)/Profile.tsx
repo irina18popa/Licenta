@@ -1,49 +1,76 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Image, TouchableOpacity, FlatList, Alert } from 'react-native';
+import { View, Text, Image, TouchableOpacity, FlatList, Alert, Modal } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import images from '../../../constants/images';  // Default fallback image
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import * as ImagePicker from 'expo-image-picker';
-import { loadNewProfilePic } from '@/app/apis';
+import { getLoggedInUser, loadNewProfilePic } from '@/app/apis';
+import * as Location from 'expo-location';
 
 const menuItems = [
-  // { key: 'guestQR', label: 'GuestQR', icon: <Ionicons name="qr-code-outline" size={20} /> },
-  // { key: 'profile', label: 'Profile', icon: <Feather name="user" size={20} /> },
-  // { key: 'family', label: 'Family', icon: <Ionicons name="people-outline" size={20} /> },
-  // { key: 'notification', label: 'Notification', icon: <Ionicons name="notifications-outline" size={20} /> },
-  // { key: 'appearance', label: 'Appearance Settings', icon: <Feather name="moon" size={20} /> },
-  // { key: 'help', label: 'Help Center', icon: <Feather name="info" size={20} /> },
+  { key: 'settings', label: 'Settings', icon: <Feather name="user" size={20} /> },
   { key: 'logout', label: 'Logout', icon: <Feather name="log-out" size={20} />, color: 'text-red-500' },
 ];
 
 const Profile = () => {
-  const [userName, setUserName] = useState(''); // State to store user's name
   const [profileImage, setProfileImage] = useState('');
+  const [userName, setUserName] = useState('');
+  const [modalVisible, setModalVisible] = useState(false);
+  const [user, setUser] = useState(null);
+  const [city, setCity] = useState('');              // the city only, for SecureStore
+  const [locationCoords, setLocationCoords] = useState(null);  // for reverse geocoding (lat/lng)
+  const [locating, setLocating] = useState(false);
+  const [address, setAddress] = useState('');
 
   // Fetch user info from SecureStore
   useEffect(() => {
     const fetchUserInfo = async () => {
-      const user = await SecureStore.getItemAsync('user');
-      if (user) {
-        const parsedUser = JSON.parse(user);
-        setUserName(parsedUser.first_name + ' ' + parsedUser.last_name);  // Assuming first_name and last_name are in the response
-        setProfileImage(parsedUser.profile_image || ''); // Fallback to default image if no profile_image
+      const userStr = await SecureStore.getItemAsync('user');
+      if (userStr) {
+        const parsedUser = JSON.parse(userStr);
+        setUser(parsedUser);
+        setUserName(parsedUser.first_name + ' ' + parsedUser.last_name);
+        setProfileImage(parsedUser.profile_image || '');
+        // Only the city string is saved        
+        setCity(parsedUser.location || '');
       }
     };
-
     fetchUserInfo();
   }, []);
 
-  // Handle logout
+  // Whenever locationCoords changes, update address for UI
+  useEffect(() => {
+    if (locationCoords && locationCoords.latitude && locationCoords.longitude) {
+      fetchAddressFromCoords(locationCoords);
+    } else {
+      setAddress('');
+    }
+  }, [locationCoords]);
+
   const handleLogout = async () => {
     await SecureStore.deleteItemAsync('userToken');
     await SecureStore.deleteItemAsync('user');
     router.replace('/LogIn');
   };
 
-  // Handle image picker to upload new profile image
+  const fetchAddressFromCoords = async (coords) => {
+    if (!coords) return setAddress('');
+    try {
+      const geocode = await Location.reverseGeocodeAsync(coords);
+      if (geocode && geocode[0]) {
+        const { city, country, street, name } = geocode[0];
+        const formatted = [street || name, city, country].filter(Boolean).join(', ');
+        setAddress(formatted);
+      } else {
+        setAddress('Unknown address');
+      }
+    } catch (e) {
+      setAddress('Unknown address');
+    }
+  };
+
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -54,17 +81,14 @@ const Profile = () => {
 
     if (!result.canceled) {
       const selectedImageUri = result.assets[0].uri;
-      setProfileImage(selectedImageUri); // Update the local state with the new image URI
-
-      // Now upload the selected image to your server
+      setProfileImage(selectedImageUri);
       uploadImageToServer(selectedImageUri);
     } else {
       Alert.alert('No image selected');
     }
   };
 
-  // Update user with new profile image
-  const uploadImageToServer = async (imageUri: string) => {
+  const uploadImageToServer = async (imageUri) => {
     const user = JSON.parse(await SecureStore.getItemAsync('user'));
     const userToken = await SecureStore.getItemAsync('userToken');
 
@@ -74,11 +98,9 @@ const Profile = () => {
     }
 
     try {
-      // Make a PUT request to update the user profile with the new image
       const response = await loadNewProfilePic(user._id, imageUri);
 
       if (response) {
-        // Save the updated user data in SecureStore
         await SecureStore.setItemAsync('user', JSON.stringify(response));
         Alert.alert('Profile updated successfully');
       } else {
@@ -90,33 +112,69 @@ const Profile = () => {
     }
   };
 
-  // Ensure that profileImage is a valid URI, otherwise, use a fallback image
   const getValidImageSource = (img) => {
-    // If not a string, return fallback local image
     if (typeof img !== 'string' || !img.trim()) return images.avatar;
-    // Base64 or file URI
     if (img.startsWith('data:image') || img.startsWith('file://') || img.startsWith('http')) {
       return { uri: img };
     }
-    // Otherwise fallback
     return images.avatar;
   };
 
+  const handleShowDetails = () => setModalVisible(true);
+  const handleCloseModal = () => setModalVisible(false);
+
+  // When pressing "Change Location", update both SecureStore (city) and set UI address (from lat/lng)
+  const handleChangeLocation = async () => {
+    setLocating(true);
+    let { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission to access location was denied');
+      setLocating(false);
+      return;
+    }
+    let newLoc = await Location.getCurrentPositionAsync({});
+    const coords = {
+      latitude: newLoc.coords.latitude,
+      longitude: newLoc.coords.longitude,
+    };
+
+    // Reverse geocode to get city
+    let newCity = '';
+    try {
+      const geocode = await Location.reverseGeocodeAsync(coords);
+      if (geocode && geocode[0] && geocode[0].city) {
+        newCity = geocode[0].city;
+        // set address with full info (street, city, country)
+        const { street, name, country } = geocode[0];
+        setAddress([street || name, newCity, country].filter(Boolean).join(', '));
+      } else {
+        setAddress('');
+      }
+    } catch (e) {
+      newCity = '';
+      setAddress('');
+    }
+
+    setLocationCoords(coords); // Save for further reverse geocode if needed
+    setCity(newCity); // This is the only thing saved in SecureStore
+
+    // Save just the city in SecureStore
+    if (user) {
+      const updatedUser = { ...user, location: newCity };
+      await SecureStore.setItemAsync('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+    }
+
+    setLocating(false);
+  };
 
   return (
     <SafeAreaView className="flex-1">
       <Image source={images.background} className="absolute w-full h-full" blurRadius={10} />
-      <View className="px-6 py-4 flex-row justify-between items-center">
-        <Text className="text-xl font-semibold">Profile</Text>
-        <TouchableOpacity className="p-2 rounded-full bg-gray-100">
-          <Ionicons name="notifications-outline" size={24} />
-        </TouchableOpacity>
-      </View>
-
       <View className="items-center mt-6">
         <View className="relative">
           <Image
-            source={getValidImageSource(profileImage)} // Validate the URI before passing it to the Image component
+            source={getValidImageSource(profileImage)}
             className="w-28 h-28 rounded-full"
           />
           <TouchableOpacity className="absolute bottom-0 right-0 bg-blue-500 p-2 rounded-full" onPress={pickImage}>
@@ -133,16 +191,75 @@ const Profile = () => {
         renderItem={({ item }) => (
           <TouchableOpacity
             className="flex-row items-center justify-between py-4 border-b border-gray-200"
-            onPress={item.key === 'logout' ? handleLogout : () => router.push(`/${item.key}`)}
+            onPress={async () => {
+              if (item.key === 'logout') {
+                handleLogout();
+              } else if (item.key === 'settings') {
+                const loggedInUser = await getLoggedInUser();
+                setUser(loggedInUser);
+                setCity(loggedInUser?.location ?? '');
+                setModalVisible(true);
+              } else {
+                router.push(`/${item.key}`);
+              }
+            }}
           >
             <View className="flex-row items-center space-x-4">
               <Text className={`${item.color ?? 'text-white'}`}>{item.icon}</Text>
-              <Text className={`${item.color ?? 'text-white'} text-base`}>{item.label}</Text>
+              <Text className={`${item.color ?? 'text-white'} ml-4 text-base`}>{item.label}</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#ccc" />
           </TouchableOpacity>
         )}
       />
+
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={handleCloseModal}
+      >
+        <View className="flex-1 bg-black/60 justify-center items-center">
+          <View className="bg-[#222] rounded-2xl px-6 py-6 min-w-[260px] max-w-[340px] w-11/12 items-center shadow-lg">
+            <Text className="text-white text-lg font-bold mb-5 text-center">
+              User Details
+            </Text>
+            <View className="w-full mb-2">
+              <Text className="text-gray-400 text-xs mb-1">First Name</Text>
+              <Text className="text-white text-base">{user?.first_name ?? '-'}</Text>
+            </View>
+            <View className="w-full mb-2">
+              <Text className="text-gray-400 text-xs mb-1">Last Name</Text>
+              <Text className="text-white text-base">{user?.last_name ?? '-'}</Text>
+            </View>
+            <View className="w-full mb-2">
+              <Text className="text-gray-400 text-xs mb-1">Email</Text>
+              <Text className="text-white text-base">{user?.email ?? '-'}</Text>
+            </View>
+            <View className="w-full mb-2">
+              <Text className="text-gray-400 text-xs mb-1">Location</Text>
+              <Text className="text-white text-base">
+                {address ? address : (city || 'No location set')}
+              </Text>
+            </View>
+            <TouchableOpacity
+              className={`mt-3 w-full rounded-xl bg-blue-700 py-3 ${locating ? 'opacity-60' : ''}`}
+              onPress={handleChangeLocation}
+              disabled={locating}
+            >
+              <Text className="text-white text-center font-bold text-base">
+                {locating ? 'Updating...' : 'Change Location'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              className="mt-4 px-5 py-2 rounded-xl bg-gray-700 self-center"
+              onPress={handleCloseModal}
+            >
+              <Text className="text-blue-200 font-bold text-base">Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };

@@ -3,6 +3,7 @@ import multer from 'multer';
 import fs from 'fs'
 import axios from 'axios';
 import FormData from 'form-data';
+import parseCommand from '../config/ParsingCommands.js'
 
 const upload = multer({ dest: 'audio/' });
 const router = express.Router();
@@ -14,8 +15,7 @@ router.post('/', upload.single('file'), async (req, res) => {
 
     const formData = new FormData();
     formData.append('file', fileStream, req.file.originalname);
-    formData.append('language', 'english'); // Optional
-    // formData.append('response_format', 'json');
+    formData.append('language', 'english'); 
 
     const response = await axios.post(
       'https://api.lemonfox.ai/v1/audio/transcriptions',
@@ -28,14 +28,13 @@ router.post('/', upload.single('file'), async (req, res) => {
       }
     );
 
-    fs.unlinkSync(filePath); // Clean up uploaded file
+    fs.unlinkSync(filePath); 
 
-    // Optionally parse/act on the transcript here
     const text = response.data.text;
-    // e.g., check for smart home commands:
-    // if (text && text.toLowerCase().includes('turn on')) { ... }
 
-    res.json({ text });
+    const parsed = await parseCommand(text);
+    res.json(parsed);
+
   } catch (e) {
     res.status(500).json({ error: e.message || String(e) });
   }

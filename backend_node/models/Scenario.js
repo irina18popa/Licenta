@@ -10,7 +10,7 @@ const CommandSchema = new mongoose.Schema({
 const TriggerSchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ['time', 'weather', 'temperature'],
+    enum: ['time', 'temperature'],
     required: true,
   },
 
@@ -18,9 +18,6 @@ const TriggerSchema = new mongoose.Schema({
   timeFrom: String,           // e.g. "08:00"
   timeTo: String,             // e.g. "10:00"
   daysOfWeek: [Number],       // 0=Sun, 1=Mon, etc.
-
-  // Weather condition trigger
-  weatherCondition: String,   // e.g. "Rain", "Clear", etc.
 
   // Temperature-based trigger
   temperature: Number,        // e.g. 25
