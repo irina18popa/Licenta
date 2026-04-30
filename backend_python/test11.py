@@ -2,7 +2,7 @@ import aiohttp
 from async_upnp_client.aiohttp import AiohttpSessionRequester
 from async_upnp_client.client_factory import UpnpFactory
 
-DEVICE_DESC_URL = "http://192.168.1.131:2870/dmr.xml"
+DEVICE_DESC_URL = "http://192.168.1.134:2870/dmr.xml"
 
 async def get_upnp_actions():
     async with aiohttp.ClientSession() as session:

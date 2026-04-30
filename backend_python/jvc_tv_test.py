@@ -104,3 +104,37 @@ mqtt_client.on_message = on_message
 
 mqtt_client.connect(MQTT_BROKER, 1883, 60)
 mqtt_client.loop_forever()
+
+
+
+import socket
+from getmac import get_mac_address
+
+TV_IP = "192.168.1.133"
+
+def get_tv_mac(ip_address: str) -> str:
+    """Obtain the MAC address for the given IP using getmac."""
+    mac = get_mac_address(ip=ip_address)
+    if mac:
+        print(f"MAC address for {ip_address} is {mac}")
+    else:
+        print(f"Could not determine MAC address for {ip_address}")
+    return mac
+
+def send_magic_packet(mac_address):
+    # Format the MAC address (remove colons/hyphens)
+    mac_bytes = bytes.fromhex(mac_address.replace(':', '').replace('-', ''))
+    # Create the magic packet: 6 bytes of FF followed by the MAC address repeated 16 times
+    magic_packet = b'\xFF' * 6 + mac_bytes * 16
+
+    # Send the magic packet to the broadcast address
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        sock.sendto(magic_packet, ('<broadcast>', 9))
+    print(f"Sent Wake-on-LAN packet to {mac_address}")
+
+# Replace with your TV's MAC address
+mac = get_tv_mac(TV_IP)
+send_magic_packet(mac)
+
+

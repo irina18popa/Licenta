@@ -1,0 +1,110 @@
+import { View, Text, Image, ActivityIndicator } from 'react-native'
+import React, { useEffect, useState } from 'react'
+import { Tabs, useRouter } from 'expo-router'
+import icons from '@/constants/icons'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import * as SecureStore from 'expo-secure-store';
+
+
+const TabIcon = ({focused, icon, title}:
+    {
+        focused:boolean
+        icon:any
+        title:string
+    }
+) => (
+    <View className='flex-1 mt-3 flex flex-col items-center'>
+        <Image source ={icon} tintColor={focused? '#0061ff':'#666876'} resizeMode='contain' className='size-6 '></Image>
+        <Text className={`${focused ?
+            'text-blue-600 font-rubik-medium':'text-white font-rubik'} text-xs w-full text-center mt-1`}>
+                {title}
+            </Text>
+    </View>
+)
+
+const TabsLayout = () => {
+    const [loading, setLoading] = useState(true);
+    const router = useRouter()
+
+    // useEffect(() => {
+    //     (async () => {
+    //         // Optionally: await SecureStore.deleteItemAsync('user');
+    //         // await SecureStore.deleteItemAsync('userToken');
+    //         // To clear *all* SecureStore items:
+    //         await SecureStore.deleteItemAsync('user');
+    //         await SecureStore.deleteItemAsync('userToken');
+    //         // You could clear AsyncStorage here too if used
+    //     })();
+    //     }, []);
+
+    useEffect(() => {
+    const validateToken = async () => {
+      const token = await SecureStore.getItemAsync('userToken');
+
+      if (!token) {
+        router.replace('/LogIn'); // Redirect to login if no token
+      }
+
+      setLoading(false);
+    };
+
+    validateToken();
+  }, []);
+
+  if (loading) {
+    return (
+      <View className="flex-1 justify-center items-center bg-black">
+        <ActivityIndicator size="large" color="#ffffff" />
+      </View>
+    );
+  }
+  
+  return (
+        <Tabs
+            screenOptions={{
+                tabBarShowLabel:false,
+                tabBarStyle: {
+                    backgroundColor:'black',
+                    position:'absolute',
+                    borderTopColor:'#0061ff1a',
+                    borderTopWidth:1,
+                    minHeight:70,
+                    elevation: 0,                     // remove Android shadow
+                    shadowOpacity: 0,                 // remove iOS shadow
+                }
+            }}>
+            <Tabs.Screen
+                name='index'
+                options={{
+                    title:'Home',
+                    headerShown:false,
+                    tabBarIcon: ({focused}) => (
+                        <TabIcon icon={icons.home} focused={focused} title='Home'></TabIcon>
+                    )
+                }}>
+            </Tabs.Screen>
+            <Tabs.Screen
+                name='Scenarios'
+                options={{
+                    title:'Scenarios',
+                    headerShown:false,
+                    tabBarIcon: ({focused}) => (
+                        <TabIcon icon={icons.clock} focused={focused} title='Scenarios'></TabIcon>
+                    )
+                }}>
+            </Tabs.Screen>
+            <Tabs.Screen
+                name='Profile'
+                options={{
+                    title:'Profile',
+                    headerShown:false,
+                    tabBarIcon: ({focused}) => (
+                        <TabIcon icon={icons.person} focused={focused} title='Profile'></TabIcon>
+                    )
+                }}>
+            </Tabs.Screen>
+        </Tabs>
+  )
+}
+
+export default TabsLayout

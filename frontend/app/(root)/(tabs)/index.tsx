@@ -1,0 +1,564 @@
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Image,
+  StatusBar,
+  TextInput,
+  FlatList,
+  Switch,
+  ActivityIndicator,
+  Alert,
+} from "react-native";
+import { io, protocol, Socket } from "socket.io-client";
+import { FontAwesome, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect, useRouter } from "expo-router";
+import { deleteDevice, getUserDevices, getLoggedInUser, getDeviceStateById, handleRequest, getDeviceById, getAllRooms, deleteRoom } from "@/app/apis"; // your existing API helper
+import images from "../../../constants/images";
+import SwipeableRow from "@/components/SwipeableRow";
+import { ScrollView, Swipeable } from "react-native-gesture-handler";
+import * as SecureStore from 'expo-secure-store';
+import VoiceAssistantModal from "@/app/VoiceAssistantModal";
+import { LogBox } from 'react-native';
+
+
+  const apiKey = '3911749f8e26e530fd89787c88f2723d';
+
+
+interface RawDevice {
+  _id: string;
+  name: string;
+  type: "tv" | "lamp" | string;
+  status: "online" | "offline";
+  manufacturer: string
+  // …other fields…
+}
+
+interface DeviceWithState extends RawDevice {
+  isOn: boolean;
+  stateId?: string | null;
+}
+
+
+interface Weather {
+  name: string
+  main: { temp: number; feels_like: number; humidity: number };
+  weather: Array<{ description: string; icon: string }>;
+  wind: { speed: number };
+}
+
+interface Room {
+  _id: string;
+  name: string;
+  image: string; 
+  devices: string[];
+}
+
+
+LogBox.ignoreLogs([
+  'VirtualizedLists should never be nested', 
+]);
+
+
+const SOCKET_SERVER_URL = 'http://192.168.1.135:3000';
+
+
+const HomeScreen = () => {
+  const [weather, setWeather] = useState<Weather | null>(null);
+  const [city, setCity] = useState('');
+  const [selectedTab, setSelectedTab] = useState<"Rooms" | "Devices">("Rooms");
+  const [devices, setDevices] = useState<DeviceWithState[]>([]);
+  const [loadingDevices, setLoadingDevices] = useState(true);
+  const [deviceError, setDeviceError] = useState<string | null>(null);
+  const [openRow, setOpenRow] = useState<Swipeable | null>(null);
+  const [userName, setUserName] = useState(''); // State to store user's name
+  const [profileImage, setProfileImage] = useState('');
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [loadingRooms, setLoadingRooms] = useState(true);
+  const [roomError, setRoomError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+
+
+
+  const router = useRouter();
+
+  // Fetch user info from SecureStore
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      const user = await SecureStore.getItemAsync('user');
+      if (user) {
+        const parsedUser = JSON.parse(user);
+        setUserName(parsedUser.first_name + ' ' + parsedUser.last_name);  // Assuming first_name and last_name are in the response
+        setProfileImage(parsedUser.profile_image || ''); // Fallback to default image if no profile_image
+      }
+    };
+
+    const fetchRooms = async () => {
+      try {
+        const data = await getAllRooms();
+        setRooms(data); // Make sure each item has `_id`, `name`, `image`
+      } catch (err: any) {
+        setRoomError(err.message || "Failed to fetch rooms");
+      } finally {
+        setLoadingRooms(false);
+      }
+    };
+
+    fetchUserInfo();
+    fetchRooms(); // ← add this
+    fetchWeather()
+
+  }, [])
+
+  const socketRef = useRef<Socket | null>(null);
+
+
+  const fetchDevices = async () => {
+  try {
+    const rawList = await getUserDevices(); // [{_id, ...}, ...]
+    const devicesWithState = await Promise.all(
+      rawList.map(async (device) => {
+        try {
+          // Device state may be object with .data (array), or just array
+          const stateDataRaw = await getDeviceStateById(device._id);
+          const stateArr = Array.isArray(stateDataRaw)
+            ? stateDataRaw
+            : Array.isArray(stateDataRaw.data)
+              ? stateDataRaw.data
+              : [];
+          const switchLedObj = stateArr.find(s => s.code === "switch_led");
+          return {
+            ...device,
+            isOn: switchLedObj ? switchLedObj.value : false,
+            stateId: switchLedObj ? switchLedObj._id : null,
+          };
+        } catch (err) {
+          // If call fails, device will be treated as OFF
+          return { ...device, isOn: false };
+        }
+      })
+    );
+    setDevices(devicesWithState);
+    setDeviceError(null);
+  } catch (err: any) {
+    setDeviceError(err.message || "Failed to fetch devices");
+  } finally {
+    setLoadingDevices(false);
+  }
+};
+
+
+
+  useEffect(() => {
+    fetchDevices();
+
+    // 2) Connect to Socket.io
+    socketRef.current = io(SOCKET_SERVER_URL, {
+      transports: ["websocket"],
+      // If you move to HTTPS/WSS, just do: "https://your‐domain.com"
+    });
+
+    socketRef.current.on("device:status_changed", ({ deviceId, newStatus }) => {
+      setDevices((prevDevices) =>
+        prevDevices.map((d) =>
+          d._id === deviceId ? { ...d, status: newStatus } : d
+        )
+      );
+      fetchDevices()
+    });
+
+    return () => {
+      socketRef.current?.disconnect();
+    };
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchDevices()
+    }, [])
+  )
+
+
+    const fetchWeather = async () => {
+      const user = await getLoggedInUser();
+      const city = user?.location; // This is the city name you saved earlier!
+      setCity(city)
+      if (!city){
+        setCity('')
+        return Alert.alert("No city set in your profile!");
+      } 
+      setLoading(true);
+      setWeather(null);
+
+      try {
+        const res = await fetch(
+          `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${apiKey}&units=metric`
+        );
+        const data = await res.json();
+        if (res.ok && data.weather && data.main) {
+          setWeather(data);
+        } else {
+          setWeather(null);
+          Alert.alert("Not found", data.message || "Could not find that city!");
+        }
+      } catch (e) {
+        Alert.alert("Network error", String(e));
+      }
+      setLoading(false);
+    };
+
+
+
+  const handleToggleSwitch = async (deviceId: string, on: boolean) => {
+    try {
+      const res = await getDeviceById(deviceId); // You might have a getDeviceById(deviceId) instead if needed
+      const tuyaID = res?.metadata || 'unknown';
+      const tuyaType = res.type
+      let payload = {}
+      // Build Tuya-style payload
+      if(tuyaType === "bulb")
+      {
+        payload = {
+          commands: [
+            { code: "switch_led", value: on }
+          ]
+        };  
+      }
+      else if(tuyaType === "plug")
+      {
+        payload = {
+          commands: [
+            { code: "switch_1", value: on }
+          ]
+        };  
+      }
+        
+
+      const fullPayload = {
+        protocol:'tuya',
+        address:tuyaID,
+        ...payload
+      };
+      // Topic & type
+      const topic = `app/devices/${deviceId}/do_command/in`;
+      const type = "publish";
+      // Send to backend (MQTT broker or similar)
+      await handleRequest(topic, type, JSON.stringify(fullPayload));
+
+      // Update local state for instant feedback
+      setDevices((prev) =>
+        prev.map((d) =>
+          d._id === deviceId
+            ? { ...d, isOn: on }
+            : d
+        )
+      );
+    } catch (err) {
+      Alert.alert("Error", "Failed to toggle switch");
+      console.error("Toggle error:", err.message || err);
+    }
+  };
+
+
+  const handleDeleteRoom = async (roomId: string) => {
+    Alert.alert("Delete Room", "Are you sure you want to delete this room?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await deleteRoom(roomId); // <- Make sure this API exists
+            setRooms((prev) => prev.filter((r) => r._id !== roomId));
+          } catch (err) {
+            Alert.alert("Error", "Failed to delete room");
+          }
+        },
+      },
+    ]);
+  };
+
+
+  const renderRoom = ({ item }: { item: Room | { isAddCard: true } }) => {
+    if ('isAddCard' in item) {
+      return (
+        <TouchableOpacity
+          onPress={() => router.navigate("/CreateRoom")}
+          className="mr-4 w-60 h-72 rounded-xl overflow-hidden justify-center items-center"
+        >
+          <View className="absolute inset-0 bg-white/10 rounded-xl backdrop-blur-sm items-center justify-center">
+            <Ionicons name="add" size={40} color="white" />
+            <Text className="text-white mt-2 text-lg font-medium">Create Room</Text>
+          </View>
+        </TouchableOpacity>
+      );
+    }
+
+    return (
+      <TouchableOpacity
+        className="mr-4 w-60"
+        onPress={() =>
+          router.navigate({
+            pathname: "/properties/Room",
+            params: { roomId: item._id },
+          })
+        }
+        onLongPress={() => handleDeleteRoom(item._id)}
+      >
+        <Image source={images[item.image] || images.background} className="w-full h-72 rounded-xl mb-2" />
+        <Text className="text-lg font-bold text-white/60 ml-4">{item.name}</Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderDevice = ({ item }: { item: DeviceWithState }) => {
+    
+    const handleRowOpen = (ref: Swipeable) => {
+      if (openRow && openRow !== ref) {
+        openRow.close();
+      }
+      setOpenRow(ref);
+    };
+
+    const isOnline = item.status === "online"
+
+    const iconName: React.ComponentProps<typeof Ionicons>["name"] =
+      item.type === "tv"
+        ? "tv-outline"
+        : item.type === "lamp"
+        ? "bulb-outline"
+        : "apps-outline";
+
+    let screen = "";
+    switch (item.type) {
+      case "bulb":
+        screen = "/properties/LampControl";
+        break;
+      case "media":
+        screen = "/properties/Remote3";
+        break;
+      case "sensor_th":
+        screen = "/properties/THControl";
+        break;
+      case "plug":
+        screen = "/properties/PlugControl";
+        break;
+      default:
+        screen = "/properties/WaterFlood";
+    }
+
+    const isSwitchable = item.type === "bulb" || item.type === "plug"
+
+    return (
+      <SwipeableRow
+        onDelete={() =>
+          Alert.alert("Delete Device", "Are you sure?",
+            [
+              {
+                text:"Cancel", style: "cancel"
+              },
+              {
+                text:"Delete", style: "destructive" , 
+                onPress: async () =>
+                {
+                  await deleteDevice(item._id)
+                  setDevices((prev) => prev.filter((d) => d._id !== item._id));
+                }
+              },
+            ]
+          )
+        }
+        onSwipeableOpen={handleRowOpen}>
+        <TouchableOpacity
+          className="flex-row justify-between items-center bg-black bg-opacity-50 mx-5 my-2 rounded-xl p-4"
+          onPress={() => router.navigate({
+            pathname:screen,
+            params:
+              {
+                id:item._id,
+                mode: "live",
+              },
+          })}
+          disabled={!isOnline}
+        >
+          <View className="flex-row items-center">
+            <Ionicons name={iconName} size={24} color="white" />
+            <View className="ml-3">
+              <Text className="text-white text-lg font-bold">{item.name}</Text>
+              <View className="flex-row items-center">
+                <View
+                  className={`w-2 h-2 rounded-full mr-1 ${
+                    isOnline ? "bg-green-400" : "bg-red-600"
+                  }`}
+                />
+                <Text className="text-white">{isOnline ? "Online" : "Offline"}</Text>
+              </View>
+            </View>
+          </View>
+          {isSwitchable && 
+          (<Switch
+            value={item.isOn}
+            onValueChange={(val) => handleToggleSwitch(item._id, val)}
+            trackColor={{ true: "#34D399", false: "#9CA3AF" }}
+            thumbColor={item.isOn ? "#10B981" : "#F3F4F8"}
+            disabled={!isOnline}
+          />)}
+        </TouchableOpacity>
+      </SwipeableRow>
+    );
+  };
+
+
+  return (
+    <SafeAreaView className="flex-1 bg-black">
+      <Image
+        source={images.background}
+        className="absolute w-full h-full"
+        blurRadius={10}
+      />
+       <ScrollView
+          className="flex-1"
+          contentContainerStyle={{ flexGrow: 1 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+      
+      <StatusBar barStyle="light-content" />
+
+      {/* Header */}
+      <View className="flex-row justify-between items-center px-5 pt-3">
+        <TouchableOpacity
+          className="flex-row items-center"
+          onPress={() => router.navigate("/Profile")}
+        >
+          <Image source={{uri : profileImage}} className="w-10 h-10 rounded-full mr-3" />
+          <View>
+            <Text className="text-sm text-white">Good Morning</Text>
+            <Text className="text-xl font-bold text-white">{userName}</Text>
+          </View>
+        </TouchableOpacity>
+        <View className="flex-col items-center p-2 gap-y-5">
+          <TouchableOpacity onPress={() => router.navigate("/AddDevice")}>
+            <MaterialCommunityIcons name="plus" size={34} color="#4B5563" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowVoiceModal(true)}>
+            <FontAwesome name="microphone" size={34} color="#4B5563" />
+          </TouchableOpacity>
+          {showVoiceModal && (
+            <VoiceAssistantModal onClose={() => setShowVoiceModal(false)} />
+          )}
+        </View>
+      </View>
+
+      <View className="p-4">
+        {weather && weather.weather && weather.weather[0] && (
+          <View className="flex-row bg-blue-500 mx-2 rounded-2xl p-5 items-center">
+            <Image
+              // source={{
+              //   uri: `https://openweathermap.org/img/wn/${weather.weather[0].icon}@4x.png`,
+              // }}
+              className="w-20 h-20"
+            />
+            <View className="ml-4 flex-1">
+              <Text className="text-4xl font-bold text-white">
+                {Math.round(weather.main.temp)}°
+              </Text>
+              <Text className="text-sm text-white mb-1">
+                Feels like {Math.round(weather.main.feels_like)}°
+              </Text>
+              <Text className="text-base text-white capitalize">
+                {weather.weather[0].description}
+              </Text>
+              <Text className="text-xs text-blue-200 mt-2">
+                Wind: {weather.wind.speed} m/s   Humidity: {weather.main.humidity}%
+              </Text>
+              <Text className="text-lg text-white font-bold mt-2">
+                {weather.name}
+              </Text>
+            </View>
+          </View>
+        )}
+    </View>
+
+
+      {/* Tabs */}
+      <View className="flex-row bg-white rounded-lg p-1 mt-5 w-40 mx-auto">
+        <TouchableOpacity
+          className={`flex-1 items-center py-2 rounded-lg ${
+            selectedTab === "Rooms" ? "bg-blue-500" : ""
+          }`}
+          onPress={() => setSelectedTab("Rooms")}
+        >
+          <Text
+            className={`text-base font-semibold ${
+              selectedTab === "Rooms" ? "text-white" : "text-gray-600"
+            }`}
+          >
+            Rooms
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          className={`flex-1 items-center py-2 rounded-lg ${
+            selectedTab === "Devices" ? "bg-blue-500" : ""
+          }`}
+          onPress={() => {
+            setSelectedTab("Devices");
+            fetchDevices();
+          }}
+        >
+          <Text
+            className={`text-base font-semibold ${
+              selectedTab === "Devices" ? "text-white" : "text-gray-600"
+            }`}
+          >
+            Devices
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Content */}
+      {selectedTab === "Rooms" ? (
+        
+        <FlatList
+          data={[...rooms, { isAddCard: true }]}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(item, index) =>
+              "isAddCard" in item ? `add-${index}` : item._id
+            }          
+          renderItem={renderRoom}
+          contentContainerStyle={{ paddingVertical: 20, paddingLeft: 20 }}
+        />
+      ) : loadingDevices ? (
+        
+        <View className="flex-1 justify-center items-center">
+          <ActivityIndicator size="large" color="#fff" />
+          <Text className="text-white mt-2">Loading...</Text>
+        </View>
+      ) : deviceError ? (
+
+        <View className="flex-1 justify-center items-center">
+          <Text className="text-red-500">Error: {deviceError}</Text>
+        </View>
+      ) : (
+
+        <FlatList
+          data={devices}
+          extraData={devices}
+          showsVerticalScrollIndicator={false}
+          keyExtractor={(item) => item._id}
+          renderItem={renderDevice}
+          contentContainerStyle={{ paddingVertical: 20 }}
+          style={{flex:1}}
+        />
+      )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+};
+
+
+export default HomeScreen;

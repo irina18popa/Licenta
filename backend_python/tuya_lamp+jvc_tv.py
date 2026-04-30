@@ -64,6 +64,7 @@ async def upnp_control(action: str):
                 result = await service.async_call_action("GetVolume", InstanceID=0, Channel="Master")
                 current_volume = int(result.get("CurrentVolume", 0))
                 new_volume = current_volume + 1 if action == 'VOLUME_UP' else current_volume - 1
+                
                 await service.async_call_action("SetVolume", InstanceID=0, Channel="Master", DesiredVolume=new_volume)
                 print(f"Volume changed from {current_volume} to {new_volume}")
             else:
